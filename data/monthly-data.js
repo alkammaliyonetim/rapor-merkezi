@@ -4,7 +4,7 @@ window.MONTHLY_DATA = {
     version: "2026.04",
     currency: "TRY",
     lastUpdate: "2026-04-24"
-  },
+  },https://github.com/alkammaliyonetim/rapor-merkezi/blob/main/data/monthly-data.js
 
   summary: {
     totalRevenue: 12500000,
