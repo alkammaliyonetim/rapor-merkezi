@@ -45,7 +45,7 @@ const sampleData = {
   ]
 };
 
-const data = sampleData;
+const data = window.MONTHLY_DATA || sampleData;
 
 const pageMap = {
   overview: {
