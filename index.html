@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapor Merkezi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-badge">RM</div>
+        <div>
+          <h1>Rapor Merkezi</h1>
+          <p>Yönetim paneli</p>
+        </div>
+      </div>
+
+      <nav class="menu">
+        <button class="menu-item active" data-view="overview">Genel Bakış</button>
+        <button class="menu-item" data-view="monthly">Aylık Performans</button>
+        <button class="menu-item" data-view="customers">Müşteri Analizi</button>
+        <button class="menu-item" data-view="categories">Kategori Karlılığı</button>
+        <button class="menu-item" data-view="report">Yönetim Raporu</button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">Genel Bakış</h2>
+          <p id="pageSubtitle">Finansal performansın hızlı özeti</p>
+        </div>
+        <div class="topbar-meta">
+          <span id="lastUpdate">Son güncelleme: -</span>
+        </div>
+      </header>
+
+      <section id="overviewView" class="view active">
+        <div class="cards-grid">
+          <div class="card stat-card">
+            <span>Toplam Ciro</span>
+            <strong id="totalRevenue">₺0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Toplam Maliyet</span>
+            <strong id="totalCost">₺0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Brüt Kar</span>
+            <strong id="grossProfit">₺0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Brüt Kar Marjı</span>
+            <strong id="grossMargin">%0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Toplam Gider</span>
+            <strong id="totalExpense">₺0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Vergi Öncesi Kar</span>
+            <strong id="profitBeforeTax">₺0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Net Kar</span>
+            <strong id="netProfit">₺0</strong>
+          </div>
+          <div class="card stat-card">
+            <span>Net Kar Marjı</span>
+            <strong id="netMargin">%0</strong>
+          </div>
+        </div>
+
+        <div class="content-grid two">
+          <div class="card">
+            <div class="card-header">
+              <h3>Aylık Finansal Özet</h3>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ay</th>
+                    <th>Ciro</th>
+                    <th>Maliyet</th>
+                    <th>Brüt Kar</th>
+                    <th>Net Kar</th>
+                  </tr>
+                </thead>
+                <tbody id="monthlySummaryTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Kategori Özeti</h3>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kategori</th>
+                    <th>Adet</th>
+                    <th>Ciro</th>
+                    <th>Kar</th>
+                    <th>Marj</th>
+                  </tr>
+                </thead>
+                <tbody id="categorySummaryTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="monthlyView" class="view">
+        <div class="card">
+          <div class="card-header">
+            <h3>Aylık Performans</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ay</th>
+                  <th>Adet</th>
+                  <th>Ciro</th>
+                  <th>Maliyet</th>
+                  <th>Brüt Kar</th>
+                  <th>Net Kar</th>
+                  <th>Net Marj</th>
+                </tr>
+              </thead>
+              <tbody id="monthlyPerformanceTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="customersView" class="view">
+        <div class="card">
+          <div class="card-header">
+            <h3>Müşteri Analizi</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Sıra</th>
+                  <th>Müşteri</th>
+                  <th>Ciro</th>
+                  <th>Pay</th>
+                </tr>
+              </thead>
+              <tbody id="customersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="categoriesView" class="view">
+        <div class="card">
+          <div class="card-header">
+            <h3>Kategori Karlılığı</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Kategori</th>
+                  <th>Adet</th>
+                  <th>Ciro</th>
+                  <th>Maliyet</th>
+                  <th>Kar</th>
+                  <th>Marj</th>
+                </tr>
+              </thead>
+              <tbody id="categoriesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="reportView" class="view">
+        <div class="content-grid two">
+          <div class="card">
+            <div class="card-header">
+              <h3>Yönetim Özeti</h3>
+            </div>
+            <div id="reportSummary" class="report-summary"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Kar Zinciri</h3>
+            </div>
+            <div id="profitBridge" class="report-summary"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
