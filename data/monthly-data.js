@@ -43,15 +43,15 @@ window.MONTHLY_DATA = {
         {month:"2025-12",label:"Aralık 2025",revenue:33182004,cost:21101199,grossProfit:12080805,grossMargin:36.4,totalQuantity:90040.9}
       ],
       categories: [
-        {name:"MDF",quantity:54966,revenue:210838871,cost:0,profit:0,margin:0},
-        {name:"FASON MDF",quantity:3064,revenue:6560974,cost:0,profit:0,margin:0},
-        {name:"SUNTA",quantity:4144,revenue:14030267,cost:0,profit:0,margin:0},
-        {name:"FASON SUNTA",quantity:143,revenue:275249,cost:0,profit:0,margin:0},
-        {name:"KAPLAMA",quantity:162167.8,revenue:35431698,cost:0,profit:0,margin:0},
-        {name:"KENAR BANT",quantity:794026,revenue:8997910,cost:0,profit:0,margin:0},
-        {name:"ÇARŞAF",quantity:9340,revenue:3374636,cost:0,profit:0,margin:0},
-        {name:"İŞÇİLİK",quantity:833,revenue:734562,cost:0,profit:0,margin:0},
-        {name:"DİĞER",quantity:8772.3,revenue:3129897,cost:0,profit:0,margin:0}
+        {name:"MDF",quantity:51542.0,revenue:200415406.64,cost:155432987.95,profit:43656939.58,margin:21.78},
+        {name:"FASON MDF",quantity:6488.0,revenue:16984438.75,cost:12403191.06,profit:4113506.63,margin:24.22},
+        {name:"SUNTA",quantity:4130.0,revenue:13989175.17,cost:8814064.01,profit:5052200.15,margin:36.11},
+        {name:"FASON SUNTA",quantity:157.0,revenue:316340.7,cost:266904.52,profit:68039.23,margin:21.51},
+        {name:"KAPLAMA",quantity:162167.844,revenue:35431698.12,cost:20065941.89,profit:15226395.01,margin:42.97},
+        {name:"KENAR BANT",quantity:794026.0,revenue:8997909.53,cost:5452669.41,profit:3218495.65,margin:35.77},
+        {name:"ÇARŞAF",quantity:9339.991,revenue:3374636.41,cost:3003426.4,profit:338007.03,margin:10.02},
+        {name:"İŞÇİLİK",quantity:833.0,revenue:734562.2,cost:618473.27,profit:99885.67,margin:13.6},
+        {name:"DİĞER",quantity:8772.342,revenue:3129897.07,cost:2347422.8,profit:801878.09,margin:25.62}
       ],
       customers: [
         {rank:1,name:"TAKDİR HOME",revenue:4457621,share:1.57},
