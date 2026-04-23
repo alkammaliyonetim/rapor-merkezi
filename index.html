@@ -26,6 +26,7 @@
         <button class="menu-item" data-view="master">MASTER_ERP</button>
         <button class="menu-item" data-view="costs">Maliyetler</button>
         <button class="menu-item" data-view="expenses">Giderler</button>
+        <button class="menu-item" data-view="control">Kontrol</button>
       </nav>
     </aside>
 
@@ -185,6 +186,25 @@
       </section>
     </main>
   </div>
+
+
+      <section id="controlView" class="view">
+        <div class="content-grid two">
+          <div class="card">
+            <div class="card-header"><h3>Kontrol Mekanizması</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Kontrol</th><th>Kaynak 1</th><th>Kaynak 2</th><th>Fark</th><th>Durum</th></tr></thead>
+                <tbody id="controlTable"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Kontrol Özeti</h3></div>
+            <div id="controlSummary" class="report-summary"></div>
+          </div>
+        </div>
+      </section>
 
   <script src="data/monthly-data.js"></script>
   <script src="app.js"></script>
