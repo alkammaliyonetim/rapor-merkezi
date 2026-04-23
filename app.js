@@ -11,7 +11,8 @@ const pageMap={
   customers:{title:"Müşteri Analizi",subtitle:"En çok ciro üreten müşteriler",viewId:"customersView"},
   master:{title:"MASTER_ERP",subtitle:"Tekil işlem bazlı detay veri",viewId:"masterView"},
   costs:{title:"Maliyetler",subtitle:"Ay bazlı ürün maliyetleri",viewId:"costsView"},
-  expenses:{title:"Giderler",subtitle:"Toplam gider ve net kar zinciri",viewId:"expensesView"}
+  expenses:{title:"Giderler",subtitle:"Toplam gider ve net kar zinciri",viewId:"expensesView"},
+  control:{title:"Kontrol",subtitle:"Ham satış, maliyet ve rapor kontrolleri",viewId:"controlView"}
 };
 
 const state={year:"2026",month:"all",view:"overview"};
@@ -189,6 +190,50 @@ function renderYonRapor(){
     <div class="report-item"><span>Net Kar Marjı</span><strong>${percent(report.netMargin)}</strong></div>
   `;
 }
+
+function renderControl(){
+  const y=yearData(state.year);
+  const cats=y.categories||[];
+  const monthly=y.monthly||[];
+  const report=y.report||{};
+  const summary=y.summary||{};
+  const sumRevenue=monthly.reduce((s,m)=>s+safe(m.revenue),0);
+  const sumCost=monthly.reduce((s,m)=>s+safe(m.cost),0);
+  const sumProfit=monthly.reduce((s,m)=>s+safe(m.grossProfit),0);
+  const catRevenue=cats.reduce((s,c)=>s+safe(c.revenue),0);
+  const catCost=cats.reduce((s,c)=>s+safe(c.cost),0);
+  const checks=[
+    {name:"Aylık Ciro Toplamı = Özet Toplam Ciro",a:sumRevenue,b:summary.totalRevenue||0},
+    {name:"Aylık Maliyet Toplamı = Özet Toplam Maliyet",a:sumCost,b:summary.totalCost||0},
+    {name:"Aylık Brüt Kar Toplamı = Özet Brüt Kar",a:sumProfit,b:summary.grossProfit||0},
+    {name:"Kategori Ciro Toplamı = Özet Toplam Ciro",a:catRevenue,b:summary.totalRevenue||0},
+    {name:"Kategori Maliyet Toplamı = Özet Toplam Maliyet",a:catCost,b:summary.totalCost||0},
+    {name:"Rapor Ciro = Özet Toplam Ciro",a:report.totalRevenue||0,b:summary.totalRevenue||0},
+    {name:"Rapor Maliyet = Özet Toplam Maliyet",a:report.totalCost||0,b:summary.totalCost||0},
+    {name:"Rapor Net Kar = Özet Net Kar",a:report.netProfit||0,b:summary.netProfit||0}
+  ];
+  const tbody=document.getElementById("controlTable");
+  const tol=1;
+  tbody.innerHTML=checks.map(c=>{
+    const diff=safe(c.a)-safe(c.b);
+    const ok=Math.abs(diff)<=tol;
+    return `<tr>
+      <td>${c.name}</td>
+      <td>${money(c.a)}</td>
+      <td>${money(c.b)}</td>
+      <td>${money(diff)}</td>
+      <td><span class="status-pill ${ok?'ok':'bad'}">${ok?'OK':'Kontrol Et'}</span></td>
+    </tr>`;
+  }).join("");
+  const okCount=checks.filter(c=>Math.abs(safe(c.a)-safe(c.b))<=tol).length;
+  document.getElementById("controlSummary").innerHTML=`
+    <div class="report-item"><span>Yıl</span><strong>${state.year}</strong></div>
+    <div class="report-item"><span>Toplam Kontrol</span><strong>${checks.length}</strong></div>
+    <div class="report-item"><span>Başarılı</span><strong>${okCount}</strong></div>
+    <div class="report-item"><span>Bekleyen</span><strong>${checks.length-okCount}</strong></div>
+  `;
+}
+
 function switchView(viewKey){
   state.view=viewKey;
   const meta=pageMap[viewKey];
@@ -206,6 +251,7 @@ function renderAll(){
   renderCustomers();
   renderYONPlus();
   renderYonRapor();
+  renderControl();
   switchView(state.view);
 }
 bindMenu(); renderAll();
