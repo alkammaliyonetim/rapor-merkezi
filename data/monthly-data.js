@@ -3,161 +3,136 @@ window.MONTHLY_DATA = {
     appName: "Rapor Merkezi",
     version: "2026.04",
     currency: "TRY",
-    lastUpdate: "2026-04-24"
-  },https://github.com/alkammaliyonetim/rapor-merkezi/blob/main/data/monthly-data.js
+    lastUpdate: "2026-04-23"
+  },
 
   summary: {
-    totalRevenue: 12500000,
-    totalCost: 9100000,
-    grossProfit: 3400000,
-    grossMargin: 27.2,
-    totalExpense: 1450000,
-    profitBeforeTax: 1950000,
-    netProfit: 1560000,
-    netMargin: 12.5
+    totalRevenue: 78040147.14,
+    totalCost: 0,
+    grossProfit: 0,
+    grossMargin: 0,
+    totalExpense: 0,
+    profitBeforeTax: 0,
+    netProfit: 0,
+    netMargin: 0
   },
 
   monthly: [
     {
       month: "2026-01",
       label: "Ocak 2026",
-      revenue: 950000,
-      cost: 710000,
-      grossProfit: 240000,
-      grossMargin: 25.3,
-      expense: 100000,
-      profitBeforeTax: 140000,
-      netProfit: 140000,
-      netMargin: 14.7,
-      totalQuantity: 1200
+      revenue: 21789495.52,
+      cost: 0,
+      grossProfit: 0,
+      grossMargin: 0,
+      expense: 0,
+      profitBeforeTax: 0,
+      netProfit: 0,
+      netMargin: 0,
+      totalQuantity: 72853.534
     },
     {
       month: "2026-02",
       label: "Şubat 2026",
-      revenue: 1100000,
-      cost: 800000,
-      grossProfit: 300000,
-      grossMargin: 27.3,
-      expense: 125000,
-      profitBeforeTax: 175000,
-      netProfit: 175000,
-      netMargin: 15.9,
-      totalQuantity: 1320
+      revenue: 28743064.16,
+      cost: 0,
+      grossProfit: 0,
+      grossMargin: 0,
+      expense: 0,
+      profitBeforeTax: 0,
+      netProfit: 0,
+      netMargin: 0,
+      totalQuantity: 93449.736
     },
     {
       month: "2026-03",
       label: "Mart 2026",
-      revenue: 980000,
-      cost: 735000,
-      grossProfit: 245000,
-      grossMargin: 25.0,
-      expense: 95000,
-      profitBeforeTax: 150000,
-      netProfit: 150000,
-      netMargin: 15.3,
-      totalQuantity: 1280
+      revenue: 27507587.46,
+      cost: 0,
+      grossProfit: 0,
+      grossMargin: 0,
+      expense: 0,
+      profitBeforeTax: 0,
+      netProfit: 0,
+      netMargin: 0,
+      totalQuantity: 62209.569
     }
   ],
 
   categories: [
     {
       name: "MDF",
-      quantity: 450,
-      revenue: 3200000,
-      cost: 2450000,
-      profit: 750000,
-      margin: 23.4
-    },
-    {
-      name: "FASON MDF",
-      quantity: 180,
-      revenue: 860000,
-      cost: 610000,
-      profit: 250000,
-      margin: 29.1
-    },
-    {
-      name: "SUNTA",
-      quantity: 390,
-      revenue: 2850000,
-      cost: 2190000,
-      profit: 660000,
-      margin: 23.2
-    },
-    {
-      name: "FASON SUNTA",
-      quantity: 140,
-      revenue: 640000,
-      cost: 470000,
-      profit: 170000,
-      margin: 26.6
+      quantity: 9906.0,
+      revenue: 45714020.02,
+      cost: 0,
+      profit: 0,
+      margin: 0
     },
     {
       name: "KAPLAMA",
-      quantity: 120,
-      revenue: 940000,
-      cost: 700000,
-      profit: 240000,
-      margin: 25.5
+      quantity: 49114.17,
+      revenue: 20296396.10,
+      cost: 0,
+      profit: 0,
+      margin: 0
     },
     {
-      name: "KENAR BANT",
-      quantity: 80,
-      revenue: 320000,
-      cost: 235000,
-      profit: 85000,
-      margin: 26.6
-    },
-    {
-      name: "ÇARŞAF",
-      quantity: 60,
-      revenue: 210000,
-      cost: 155000,
-      profit: 55000,
-      margin: 26.2
-    },
-    {
-      name: "İŞÇİLİK",
-      quantity: 200,
-      revenue: 1800000,
-      cost: 1180000,
-      profit: 620000,
-      margin: 34.4
+      name: "FASON MDF",
+      quantity: 1293.0,
+      revenue: 3389928.52,
+      cost: 0,
+      profit: 0,
+      margin: 0
     },
     {
       name: "DİĞER",
-      quantity: 90,
-      revenue: 680000,
-      cost: 510000,
-      profit: 170000,
-      margin: 25.0
+      quantity: 1015.041,
+      revenue: 3377004.54,
+      cost: 0,
+      profit: 0,
+      margin: 0
+    },
+    {
+      name: "SUNTA",
+      quantity: 534.0,
+      revenue: 2116839.47,
+      cost: 0,
+      profit: 0,
+      margin: 0
+    },
+    {
+      name: "KENAR BANT",
+      quantity: 161719.71,
+      revenue: 2036169.50,
+      cost: 0,
+      profit: 0,
+      margin: 0
+    },
+    {
+      name: "ÇARŞAF",
+      quantity: 4930.918,
+      revenue: 1109788.99,
+      cost: 0,
+      profit: 0,
+      margin: 0
     }
   ],
 
   customers: [
-    {
-      rank: 1,
-      name: "Örnek Müşteri A",
-      revenue: 1650000,
-      share: 13.2
-    },
-    {
-      rank: 2,
-      name: "Örnek Müşteri B",
-      revenue: 1380000,
-      share: 11.0
-    },
-    {
-      rank: 3,
-      name: "Örnek Müşteri C",
-      revenue: 1190000,
-      share: 9.5
-    },
-    {
-      rank: 4,
-      name: "Örnek Müşteri D",
-      revenue: 950000,
-      share: 7.6
-    }
+    { rank: 1, name: "GİZİR AHŞAP", revenue: 6902149.94, share: 8.84 },
+    { rank: 2, name: "YOL MOBİLYA (NÜKTE )", revenue: 3852799.44, share: 4.94 },
+    { rank: 3, name: "SENFONİ", revenue: 2531596.96, share: 3.24 },
+    { rank: 4, name: "IŞIK KAPLAMA", revenue: 1929655.09, share: 2.47 },
+    { rank: 5, name: "BY SEHPACI SEHPA MOB", revenue: 1920588.20, share: 2.46 },
+    { rank: 6, name: "SİMETRİ OFİS MOB.SİS", revenue: 1893620.26, share: 2.43 },
+    { rank: 7, name: "LTD. GEO DECOR", revenue: 1861078.37, share: 2.38 },
+    { rank: 8, name: "ONESTO MOBİLYA", revenue: 1700863.40, share: 2.18 },
+    { rank: 9, name: "PLANYA MİMARLIK", revenue: 1664120.00, share: 2.13 },
+    { rank: 10, name: "GK MOBİLYA GÖKHAN KI", revenue: 1593268.40, share: 2.04 },
+    { rank: 11, name: "BERAAT AKSESUAR", revenue: 1567595.00, share: 2.01 },
+    { rank: 12, name: "ATABAY (LENOVA)", revenue: 1487089.13, share: 1.91 },
+    { rank: 13, name: "ÖZNİL MOBİLYA", revenue: 1459801.71, share: 1.87 },
+    { rank: 14, name: "NELL MOBİLYA KİRA", revenue: 1458488.19, share: 1.87 },
+    { rank: 15, name: "ORMA-ERMENİSTAN (ECO", revenue: 1456865.51, share: 1.87 }
   ]
 };
