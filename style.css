@@ -45,3 +45,7 @@ tbody td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.06);font-si
 .pos{color:var(--green)}.neg{color:var(--red)}.flat{color:var(--muted)}
 @media (max-width:1200px){.cards-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid.two,.month-block-grid,.compare-grid{grid-template-columns:1fr}}
 @media (max-width:800px){.app{grid-template-columns:1fr}.sidebar{border-right:none;border-bottom:1px solid var(--border)}.cards-grid{grid-template-columns:1fr}.topbar{flex-direction:column}}
+
+.status-pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.status-pill.ok{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.35)}
+.status-pill.bad{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.35)}
