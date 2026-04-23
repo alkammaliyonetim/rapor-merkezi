@@ -13,16 +13,19 @@
         <div class="brand-badge">RM</div>
         <div>
           <h1>Rapor Merkezi</h1>
-          <p>Yönetim paneli</p>
+          <p>Karşılaştırmalı yönetim paneli</p>
         </div>
       </div>
 
       <nav class="menu">
         <button class="menu-item active" data-view="overview">Genel Bakış</button>
-        <button class="menu-item" data-view="monthly">Aylık Performans</button>
-        <button class="menu-item" data-view="customers">Müşteri Analizi</button>
+        <button class="menu-item" data-view="yonplus">YÖN_PLUS</button>
+        <button class="menu-item" data-view="yonrapor">YÖN_RAPOR</button>
         <button class="menu-item" data-view="categories">Kategori Karlılığı</button>
-        <button class="menu-item" data-view="report">Yönetim Raporu</button>
+        <button class="menu-item" data-view="customers">Müşteri Analizi</button>
+        <button class="menu-item" data-view="master">MASTER_ERP</button>
+        <button class="menu-item" data-view="costs">Maliyetler</button>
+        <button class="menu-item" data-view="expenses">Giderler</button>
       </nav>
     </aside>
 
@@ -30,85 +33,70 @@
       <header class="topbar">
         <div>
           <h2 id="pageTitle">Genel Bakış</h2>
-          <p id="pageSubtitle">Finansal performansın hızlı özeti</p>
+          <p id="pageSubtitle">Yıl geçişli ve karşılaştırmalı özet</p>
         </div>
-        <div class="topbar-meta">
-          <span id="lastUpdate">Son güncelleme: -</span>
+
+        <div class="toolbar">
+          <div class="filter">
+            <label>Yıl</label>
+            <select id="yearSelect"></select>
+          </div>
+          <div class="filter">
+            <label>Ay</label>
+            <select id="monthSelect"></select>
+          </div>
+          <div class="topbar-meta">
+            <span id="lastUpdate">Son güncelleme: -</span>
+          </div>
         </div>
       </header>
 
       <section id="overviewView" class="view active">
         <div class="cards-grid">
-          <div class="card stat-card">
-            <span>Toplam Ciro</span>
-            <strong id="totalRevenue">₺0</strong>
+          <div class="card stat-card"><span>Toplam Ciro</span><strong id="totalRevenue">₺0</strong></div>
+          <div class="card stat-card"><span>Toplam Maliyet</span><strong id="totalCost">₺0</strong></div>
+          <div class="card stat-card"><span>Brüt Kar</span><strong id="grossProfit">₺0</strong></div>
+          <div class="card stat-card"><span>Brüt Kar Marjı</span><strong id="grossMargin">%0</strong></div>
+          <div class="card stat-card"><span>Toplam Gider</span><strong id="totalExpense">₺0</strong></div>
+          <div class="card stat-card"><span>Vergi Öncesi Kar</span><strong id="profitBeforeTax">₺0</strong></div>
+          <div class="card stat-card"><span>Net Kar</span><strong id="netProfit">₺0</strong></div>
+          <div class="card stat-card"><span>Net Kar Marjı</span><strong id="netMargin">%0</strong></div>
+        </div>
+
+        <div class="compare-grid">
+          <div class="card compare-card">
+            <span>Geçen Aya Göre</span>
+            <strong id="comparePrevMonth">-</strong>
+            <small id="comparePrevMonthDetail">-</small>
           </div>
-          <div class="card stat-card">
-            <span>Toplam Maliyet</span>
-            <strong id="totalCost">₺0</strong>
+          <div class="card compare-card">
+            <span>Geçen Yıl Aynı Aya Göre</span>
+            <strong id="compareYoY">-</strong>
+            <small id="compareYoYDetail">-</small>
           </div>
-          <div class="card stat-card">
-            <span>Brüt Kar</span>
-            <strong id="grossProfit">₺0</strong>
-          </div>
-          <div class="card stat-card">
-            <span>Brüt Kar Marjı</span>
-            <strong id="grossMargin">%0</strong>
-          </div>
-          <div class="card stat-card">
-            <span>Toplam Gider</span>
-            <strong id="totalExpense">₺0</strong>
-          </div>
-          <div class="card stat-card">
-            <span>Vergi Öncesi Kar</span>
-            <strong id="profitBeforeTax">₺0</strong>
-          </div>
-          <div class="card stat-card">
-            <span>Net Kar</span>
-            <strong id="netProfit">₺0</strong>
-          </div>
-          <div class="card stat-card">
-            <span>Net Kar Marjı</span>
-            <strong id="netMargin">%0</strong>
+          <div class="card compare-card">
+            <span>Geçen Yıl Aynı Dönem (YTD)</span>
+            <strong id="compareYtd">-</strong>
+            <small id="compareYtdDetail">-</small>
           </div>
         </div>
 
         <div class="content-grid two">
           <div class="card">
-            <div class="card-header">
-              <h3>Aylık Finansal Özet</h3>
-            </div>
+            <div class="card-header"><h3>Aylık Finansal Özet</h3></div>
             <div class="table-wrap">
               <table>
-                <thead>
-                  <tr>
-                    <th>Ay</th>
-                    <th>Ciro</th>
-                    <th>Maliyet</th>
-                    <th>Brüt Kar</th>
-                    <th>Net Kar</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Ay</th><th>Ciro</th><th>Maliyet</th><th>Brüt Kar</th><th>Marj</th></tr></thead>
                 <tbody id="monthlySummaryTable"></tbody>
               </table>
             </div>
           </div>
 
           <div class="card">
-            <div class="card-header">
-              <h3>Kategori Özeti</h3>
-            </div>
+            <div class="card-header"><h3>Kategori Özeti</h3></div>
             <div class="table-wrap">
               <table>
-                <thead>
-                  <tr>
-                    <th>Kategori</th>
-                    <th>Adet</th>
-                    <th>Ciro</th>
-                    <th>Kar</th>
-                    <th>Marj</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Kategori</th><th>Adet</th><th>Ciro</th><th>Kar</th><th>Marj</th></tr></thead>
                 <tbody id="categorySummaryTable"></tbody>
               </table>
             </div>
@@ -116,46 +104,36 @@
         </div>
       </section>
 
-      <section id="monthlyView" class="view">
+      <section id="yonplusView" class="view">
         <div class="card">
-          <div class="card-header">
-            <h3>Aylık Performans</h3>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Ay</th>
-                  <th>Adet</th>
-                  <th>Ciro</th>
-                  <th>Maliyet</th>
-                  <th>Brüt Kar</th>
-                  <th>Net Kar</th>
-                  <th>Net Marj</th>
-                </tr>
-              </thead>
-              <tbody id="monthlyPerformanceTable"></tbody>
-            </table>
-          </div>
+          <div class="card-header"><h3>YÖN_PLUS</h3></div>
+          <div id="yonPlusGrid" class="month-block-grid"></div>
         </div>
       </section>
 
-      <section id="customersView" class="view">
-        <div class="card">
-          <div class="card-header">
-            <h3>Müşteri Analizi</h3>
+      <section id="yonraporView" class="view">
+        <div class="content-grid two">
+          <div class="card">
+            <div class="card-header"><h3>Kar Zinciri Analizi</h3></div>
+            <div id="karZinciri" class="report-summary"></div>
           </div>
+          <div class="card">
+            <div class="card-header"><h3>Kategori Bazlı Satışlar</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Kategori</th><th>Toplam Adet</th><th>Toplam Ciro</th><th>Ciro Payı</th></tr></thead>
+                <tbody id="yonRaporCategories"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header"><h3>En Çok Cirolu Müşteriler</h3></div>
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>Sıra</th>
-                  <th>Müşteri</th>
-                  <th>Ciro</th>
-                  <th>Pay</th>
-                </tr>
-              </thead>
-              <tbody id="customersTable"></tbody>
+              <thead><tr><th>Sıra</th><th>Müşteri</th><th>Yıllık Ciro</th><th>Pay</th></tr></thead>
+              <tbody id="yonRaporCustomers"></tbody>
             </table>
           </div>
         </div>
@@ -163,42 +141,46 @@
 
       <section id="categoriesView" class="view">
         <div class="card">
-          <div class="card-header">
-            <h3>Kategori Karlılığı</h3>
-          </div>
+          <div class="card-header"><h3>Kategori Karlılığı</h3></div>
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>Kategori</th>
-                  <th>Adet</th>
-                  <th>Ciro</th>
-                  <th>Maliyet</th>
-                  <th>Kar</th>
-                  <th>Marj</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Kategori</th><th>Adet</th><th>Ciro</th><th>Maliyet</th><th>Kar</th><th>Marj</th></tr></thead>
               <tbody id="categoriesTable"></tbody>
             </table>
           </div>
         </div>
       </section>
 
-      <section id="reportView" class="view">
-        <div class="content-grid two">
-          <div class="card">
-            <div class="card-header">
-              <h3>Yönetim Özeti</h3>
-            </div>
-            <div id="reportSummary" class="report-summary"></div>
+      <section id="customersView" class="view">
+        <div class="card">
+          <div class="card-header"><h3>Müşteri Analizi</h3></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Sıra</th><th>Müşteri</th><th>Ciro</th><th>Pay</th></tr></thead>
+              <tbody id="customersTable"></tbody>
+            </table>
           </div>
+        </div>
+      </section>
 
-          <div class="card">
-            <div class="card-header">
-              <h3>Kar Zinciri</h3>
-            </div>
-            <div id="profitBridge" class="report-summary"></div>
-          </div>
+      <section id="masterView" class="view">
+        <div class="card note-card">
+          <h3>MASTER_ERP</h3>
+          <p>Bu ekran korundu. Ham satış + maliyet + gider satırlarını tekil bazda gösterecek yapı hazır. Sonraki veri yüklemesinde filtreli detay tablo buraya bağlanacak.</p>
+        </div>
+      </section>
+
+      <section id="costsView" class="view">
+        <div class="card note-card">
+          <h3>Maliyetler</h3>
+          <p>TL / USD / EUR maliyet mantığı korunuyor. Ay bazlı maliyet kolonları ve 2026 kur ortalamalarıyla devam edecek.</p>
+        </div>
+      </section>
+
+      <section id="expensesView" class="view">
+        <div class="card note-card">
+          <h3>Giderler</h3>
+          <p>Toplam gider, VÖK ve net kar ekranı bu bölümle tamamlanacak. Bu alan korunuyor, silinmedi.</p>
         </div>
       </section>
     </main>
