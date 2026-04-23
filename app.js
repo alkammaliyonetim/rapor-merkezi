@@ -1,241 +1,211 @@
-const money = (value) =>
-  new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-
-const percent = (value) => `%${Number(value || 0).toFixed(1)}`;
-
-const sampleData = {
-  meta: {
-    lastUpdate: "2026-04-24"
-  },
-  summary: {
-    totalRevenue: 12500000,
-    totalCost: 9100000,
-    grossProfit: 3400000,
-    grossMargin: 27.2,
-    totalExpense: 1450000,
-    profitBeforeTax: 1950000,
-    netProfit: 1560000,
-    netMargin: 12.5
-  },
-  monthly: [
-    { label: "Ocak 2026", totalQuantity: 1200, revenue: 950000, cost: 710000, grossProfit: 240000, netProfit: 140000, netMargin: 14.7 },
-    { label: "Şubat 2026", totalQuantity: 1320, revenue: 1100000, cost: 800000, grossProfit: 300000, netProfit: 175000, netMargin: 15.9 },
-    { label: "Mart 2026", totalQuantity: 1280, revenue: 980000, cost: 735000, grossProfit: 245000, netProfit: 150000, netMargin: 15.3 }
-  ],
-  categories: [
-    { name: "MDF", quantity: 450, revenue: 3200000, cost: 2450000, profit: 750000, margin: 23.4 },
-    { name: "FASON MDF", quantity: 180, revenue: 860000, cost: 610000, profit: 250000, margin: 29.1 },
-    { name: "SUNTA", quantity: 390, revenue: 2850000, cost: 2190000, profit: 660000, margin: 23.2 },
-    { name: "FASON SUNTA", quantity: 140, revenue: 640000, cost: 470000, profit: 170000, margin: 26.6 },
-    { name: "KAPLAMA", quantity: 120, revenue: 940000, cost: 700000, profit: 240000, margin: 25.5 },
-    { name: "KENAR BANT", quantity: 80, revenue: 320000, cost: 235000, profit: 85000, margin: 26.6 },
-    { name: "ÇARŞAF", quantity: 60, revenue: 210000, cost: 155000, profit: 55000, margin: 26.2 },
-    { name: "İŞÇİLİK", quantity: 200, revenue: 1800000, cost: 1180000, profit: 620000, margin: 34.4 },
-    { name: "DİĞER", quantity: 90, revenue: 680000, cost: 510000, profit: 170000, margin: 25.0 }
-  ],
-  customers: [
-    { rank: 1, name: "Örnek Müşteri A", revenue: 1650000, share: 13.2 },
-    { rank: 2, name: "Örnek Müşteri B", revenue: 1380000, share: 11.0 },
-    { rank: 3, name: "Örnek Müşteri C", revenue: 1190000, share: 9.5 },
-    { rank: 4, name: "Örnek Müşteri D", revenue: 950000, share: 7.6 }
-  ]
+const money=v=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",maximumFractionDigits:0}).format(Number(v||0));
+const num=v=>new Intl.NumberFormat("tr-TR",{maximumFractionDigits:1}).format(Number(v||0));
+const percent=v=>`%${Number(v||0).toFixed(1)}`;
+const months=["all","01","02","03","04","05","06","07","08","09","10","11","12"];
+const monthLabels={all:"Tümü","01":"Ocak","02":"Şubat","03":"Mart","04":"Nisan","05":"Mayıs","06":"Haziran","07":"Temmuz","08":"Ağustos","09":"Eylül","10":"Ekim","11":"Kasım","12":"Aralık"};
+const pageMap={
+  overview:{title:"Genel Bakış",subtitle:"Yıl geçişli ve karşılaştırmalı özet",viewId:"overviewView"},
+  yonplus:{title:"YÖN_PLUS",subtitle:"Aylık bloklar ve kategori performansı",viewId:"yonplusView"},
+  yonrapor:{title:"YÖN_RAPOR",subtitle:"Yıllık özet ve karşılaştırmalı yönetim raporu",viewId:"yonraporView"},
+  categories:{title:"Kategori Karlılığı",subtitle:"Kategori bazlı performans görünümü",viewId:"categoriesView"},
+  customers:{title:"Müşteri Analizi",subtitle:"En çok ciro üreten müşteriler",viewId:"customersView"},
+  master:{title:"MASTER_ERP",subtitle:"Tekil işlem bazlı detay veri",viewId:"masterView"},
+  costs:{title:"Maliyetler",subtitle:"Ay bazlı ürün maliyetleri",viewId:"costsView"},
+  expenses:{title:"Giderler",subtitle:"Toplam gider ve net kar zinciri",viewId:"expensesView"}
 };
 
-const data = window.MONTHLY_DATA || sampleData;
+const state={year:"2026",month:"all",view:"overview"};
+const dataRoot=window.MONTHLY_DATA;
 
-const pageMap = {
-  overview: {
-    title: "Genel Bakış",
-    subtitle: "Finansal performansın hızlı özeti",
-    viewId: "overviewView"
-  },
-  monthly: {
-    title: "Aylık Performans",
-    subtitle: "Ay bazlı finansal sonuçlar",
-    viewId: "monthlyView"
-  },
-  customers: {
-    title: "Müşteri Analizi",
-    subtitle: "Ciro üreten müşteri dağılımı",
-    viewId: "customersView"
-  },
-  categories: {
-    title: "Kategori Karlılığı",
-    subtitle: "Kategori bazlı karlılık görünümü",
-    viewId: "categoriesView"
-  },
-  report: {
-    title: "Yönetim Raporu",
-    subtitle: "Yönetici özeti ve kar zinciri",
-    viewId: "reportView"
+function setText(id,val){const el=document.getElementById(id); if(el) el.textContent=val;}
+function safe(n){return Number(n||0);}
+function yearData(year){return dataRoot.years[year];}
+function filteredMonths(year,month){
+  const arr=[...(yearData(year)?.monthly||[])];
+  if(month==="all") return arr;
+  return arr.filter(m=>m.month.endsWith(`-${month}`));
+}
+function aggregateMonthly(months){
+  return months.reduce((a,m)=>({
+    revenue:a.revenue+safe(m.revenue),cost:a.cost+safe(m.cost),grossProfit:a.grossProfit+safe(m.grossProfit),
+    totalQuantity:a.totalQuantity+safe(m.totalQuantity)
+  }),{revenue:0,cost:0,grossProfit:0,totalQuantity:0});
+}
+function getCurrentSummary(){
+  const y=yearData(state.year);
+  const monthsArr=filteredMonths(state.year,state.month);
+  const agg=aggregateMonthly(monthsArr);
+  if(state.month==="all" && y.summary) return {...y.summary,totalQuantity:agg.totalQuantity};
+  return {
+    totalRevenue:agg.revenue,totalCost:agg.cost,grossProfit:agg.grossProfit,
+    grossMargin:agg.revenue?agg.grossProfit/agg.revenue*100:0,
+    totalExpense:0,profitBeforeTax:0,netProfit:0,netMargin:0,totalQuantity:agg.totalQuantity
+  };
+}
+function comparisonValue(curr,prev){
+  if(!prev) return {cls:"flat",text:"-",detail:"Karşılaştırma verisi yok"};
+  const diff=safe(curr)-safe(prev);
+  const pct=prev? (diff/prev*100):0;
+  const cls=diff>0?"pos":diff<0?"neg":"flat";
+  const sign=diff>0?"+":"";
+  return {cls,text:`${sign}${pct.toFixed(1)}%`,detail:`${sign}${money(diff)}`};
+}
+function currentMonthIndex(){
+  return state.month==="all" ? filteredMonths(state.year,"all").length : Number(state.month);
+}
+function computeComparisons(){
+  const current = getCurrentSummary().totalRevenue;
+  let prevMonth = 0, yoy = 0, ytd = 0;
+
+  if(state.month==="all"){
+    const y=yearData(state.year), prevY=yearData(String(Number(state.year)-1));
+    const thisMonths=filteredMonths(state.year,"all").length;
+    if(prevY){
+      ytd=aggregateMonthly(prevY.monthly.slice(0,thisMonths)).revenue;
+    }
+    const m = y.monthly[y.monthly.length-1];
+    const prev = y.monthly[y.monthly.length-2];
+    prevMonth = prev?.revenue || 0;
+    const sameMonthPrevY = prevY?.monthly[thisMonths-1]?.revenue || 0;
+    yoy = sameMonthPrevY;
+  } else {
+    const y=yearData(state.year), prevY=yearData(String(Number(state.year)-1));
+    const idx=Number(state.month)-1;
+    prevMonth = y.monthly[idx-1]?.revenue || 0;
+    yoy = prevY?.monthly[idx]?.revenue || 0;
+    ytd = aggregateMonthly(prevY?.monthly?.slice(0,idx+1)||[]).revenue;
   }
-};
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
+  return {
+    prevMonth: comparisonValue(current, prevMonth),
+    yoy: comparisonValue(current, yoy),
+    ytd: comparisonValue(current, ytd)
+  };
 }
-
-function renderSummary() {
-  setText("lastUpdate", `Son güncelleme: ${data.meta.lastUpdate}`);
-  setText("totalRevenue", money(data.summary.totalRevenue));
-  setText("totalCost", money(data.summary.totalCost));
-  setText("grossProfit", money(data.summary.grossProfit));
-  setText("grossMargin", percent(data.summary.grossMargin));
-  setText("totalExpense", money(data.summary.totalExpense));
-  setText("profitBeforeTax", money(data.summary.profitBeforeTax));
-  setText("netProfit", money(data.summary.netProfit));
-  setText("netMargin", percent(data.summary.netMargin));
+function renderSelectors(){
+  const ySel=document.getElementById("yearSelect"), mSel=document.getElementById("monthSelect");
+  ySel.innerHTML = Object.keys(dataRoot.years).sort().map(y=>`<option value="${y}">${y}</option>`).join("");
+  ySel.value=state.year;
+  mSel.innerHTML = months.map(m=>`<option value="${m}">${monthLabels[m]}</option>`).join("");
+  mSel.value=state.month;
+  ySel.onchange=e=>{state.year=e.target.value; renderAll();};
+  mSel.onchange=e=>{state.month=e.target.value; renderAll();};
 }
+function renderSummary(){
+  const y=yearData(state.year), s=getCurrentSummary();
+  setText("lastUpdate",`Son güncelleme: ${dataRoot.meta.lastUpdate}`);
+  setText("totalRevenue",money(s.totalRevenue)); setText("totalCost",money(s.totalCost));
+  setText("grossProfit",money(s.grossProfit)); setText("grossMargin",percent(s.grossMargin));
+  setText("totalExpense",money(s.totalExpense)); setText("profitBeforeTax",money(s.profitBeforeTax));
+  setText("netProfit",money(s.netProfit)); setText("netMargin",percent(s.netMargin));
 
-function renderMonthlySummaryTable() {
-  const body = document.getElementById("monthlySummaryTable");
-  body.innerHTML = data.monthly.map(item => `
+  const c=computeComparisons();
+  ["PrevMonth","YoY","Ytd"].forEach((key,i)=>{
+    const obj=[c.prevMonth,c.yoy,c.ytd][i];
+    const id = key==="YoY" ? "compareYoY" : key==="Ytd" ? "compareYtd" : "comparePrevMonth";
+    const detailId = key==="YoY" ? "compareYoYDetail" : key==="Ytd" ? "compareYtdDetail" : "comparePrevMonthDetail";
+    const el=document.getElementById(id); el.textContent=obj.text; el.className=obj.cls;
+    const d=document.getElementById(detailId); d.textContent=obj.detail; d.className=obj.cls;
+  });
+}
+function renderMonthlySummaryTable(){
+  const body=document.getElementById("monthlySummaryTable");
+  body.innerHTML=(yearData(state.year).monthly||[]).map(m=>`
     <tr>
-      <td>${item.label}</td>
-      <td>${money(item.revenue)}</td>
-      <td>${money(item.cost)}</td>
-      <td>${money(item.grossProfit)}</td>
-      <td>${money(item.netProfit)}</td>
-    </tr>
+      <td>${m.label}</td>
+      <td>${money(m.revenue)}</td>
+      <td>${money(m.cost)}</td>
+      <td>${money(m.grossProfit)}</td>
+      <td>${percent(m.grossMargin)}</td>
+    </tr>`).join("");
+}
+function renderCategoryTables(){
+  const cats=yearData(state.year).categories||[];
+  const totalRevenue=cats.reduce((s,c)=>s+safe(c.revenue),0);
+  const html=cats.map(c=>`
+    <tr>
+      <td>${c.name}</td>
+      <td>${num(c.quantity)}</td>
+      <td>${money(c.revenue)}</td>
+      <td>${money(c.profit)}</td>
+      <td>${percent(c.margin)}</td>
+    </tr>`).join("");
+  document.getElementById("categorySummaryTable").innerHTML=html;
+  document.getElementById("categoriesTable").innerHTML=cats.map(c=>`
+    <tr>
+      <td>${c.name}</td>
+      <td>${num(c.quantity)}</td>
+      <td>${money(c.revenue)}</td>
+      <td>${money(c.cost)}</td>
+      <td>${money(c.profit)}</td>
+      <td>${percent(c.margin)}</td>
+    </tr>`).join("");
+  document.getElementById("yonRaporCategories").innerHTML=cats.map(c=>`
+    <tr>
+      <td>${c.name}</td>
+      <td>${num(c.quantity)}</td>
+      <td>${money(c.revenue)}</td>
+      <td>${percent(totalRevenue? c.revenue/totalRevenue*100:0)}</td>
+    </tr>`).join("");
+}
+function renderCustomers(){
+  const customers=yearData(state.year).customers||[];
+  const html=customers.map(c=>`
+    <tr><td>${c.rank}</td><td>${c.name}</td><td>${money(c.revenue)}</td><td>${percent(c.share)}</td></tr>
+  `).join("");
+  document.getElementById("customersTable").innerHTML=html;
+  document.getElementById("yonRaporCustomers").innerHTML=html;
+}
+function renderYONPlus(){
+  const blocks=yearData(state.year).monthlyBlocks||[];
+  const colors=["blue","green","orange","purple","teal","gold"];
+  document.getElementById("yonPlusGrid").innerHTML = blocks.map((b,idx)=>`
+    <div class="month-block">
+      <div class="month-head ${colors[idx%colors.length]}">${b.title}</div>
+      <table class="month-table">
+        <thead><tr><th>Satışlar</th><th>S.Adet</th><th>S.Ciro</th><th>Maliyet</th><th>Kar</th><th>%</th></tr></thead>
+        <tbody>
+          ${b.rows.map(r=>`<tr class="${r.total?'total':''}">
+            <td>${r.name}</td><td>${num(r.qty)}</td><td>${money(r.revenue)}</td><td>${money(r.cost)}</td><td>${money(r.profit)}</td><td>${percent(r.margin)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
   `).join("");
 }
-
-function renderCategorySummaryTable() {
-  const body = document.getElementById("categorySummaryTable");
-  body.innerHTML = data.categories.map(item => `
-    <tr>
-      <td>${item.name}</td>
-      <td>${item.quantity}</td>
-      <td>${money(item.revenue)}</td>
-      <td>${money(item.profit)}</td>
-      <td>${percent(item.margin)}</td>
-    </tr>
-  `).join("");
-}
-
-function renderMonthlyPerformanceTable() {
-  const body = document.getElementById("monthlyPerformanceTable");
-  body.innerHTML = data.monthly.map(item => `
-    <tr>
-      <td>${item.label}</td>
-      <td>${item.totalQuantity}</td>
-      <td>${money(item.revenue)}</td>
-      <td>${money(item.cost)}</td>
-      <td>${money(item.grossProfit)}</td>
-      <td>${money(item.netProfit)}</td>
-      <td>${percent(item.netMargin)}</td>
-    </tr>
-  `).join("");
-}
-
-function renderCustomersTable() {
-  const body = document.getElementById("customersTable");
-  body.innerHTML = data.customers.map(item => `
-    <tr>
-      <td>${item.rank}</td>
-      <td>${item.name}</td>
-      <td>${money(item.revenue)}</td>
-      <td>${percent(item.share)}</td>
-    </tr>
-  `).join("");
-}
-
-function renderCategoriesTable() {
-  const body = document.getElementById("categoriesTable");
-  body.innerHTML = data.categories.map(item => `
-    <tr>
-      <td>${item.name}</td>
-      <td>${item.quantity}</td>
-      <td>${money(item.revenue)}</td>
-      <td>${money(item.cost)}</td>
-      <td>${money(item.profit)}</td>
-      <td>${percent(item.margin)}</td>
-    </tr>
-  `).join("");
-}
-
-function renderReport() {
-  const summary = document.getElementById("reportSummary");
-  const bridge = document.getElementById("profitBridge");
-
-  const bestMonth = [...data.monthly].sort((a, b) => b.netProfit - a.netProfit)[0];
-  const bestCategory = [...data.categories].sort((a, b) => b.profit - a.profit)[0];
-  const topCustomer = [...data.customers].sort((a, b) => b.revenue - a.revenue)[0];
-
-  summary.innerHTML = `
-    <div class="report-item">
-      <span>En Güçlü Ay</span>
-      <strong>${bestMonth?.label || "-"}</strong>
-    </div>
-    <div class="report-item">
-      <span>En Karlı Kategori</span>
-      <strong>${bestCategory?.name || "-"}</strong>
-    </div>
-    <div class="report-item">
-      <span>En Büyük Müşteri</span>
-      <strong>${topCustomer?.name || "-"}</strong>
-    </div>
-  `;
-
-  bridge.innerHTML = `
-    <div class="report-item">
-      <span>Toplam Ciro</span>
-      <strong>${money(data.summary.totalRevenue)}</strong>
-    </div>
-    <div class="report-item">
-      <span>Brüt Kar</span>
-      <strong>${money(data.summary.grossProfit)}</strong>
-    </div>
-    <div class="report-item">
-      <span>Toplam Gider</span>
-      <strong>${money(data.summary.totalExpense)}</strong>
-    </div>
-    <div class="report-item">
-      <span>Net Kar</span>
-      <strong>${money(data.summary.netProfit)}</strong>
-    </div>
+function renderYonRapor(){
+  const y=yearData(state.year), sum=getCurrentSummary();
+  const report = y.report || {
+    totalRevenue: sum.totalRevenue, totalCost: sum.totalCost, grossProfit: sum.grossProfit, grossMargin: sum.grossMargin,
+    totalExpense: sum.totalExpense, profitBeforeTax: sum.profitBeforeTax, tax: 0, netProfit: sum.netProfit, netMargin: sum.netMargin
+  };
+  document.getElementById("karZinciri").innerHTML = `
+    <div class="report-item"><span>Toplam Satış Cirosu</span><strong>${money(report.totalRevenue)}</strong></div>
+    <div class="report-item"><span>Toplam Maliyet</span><strong>${money(report.totalCost)}</strong></div>
+    <div class="report-item"><span>Brüt Kar</span><strong>${money(report.grossProfit)}</strong></div>
+    <div class="report-item"><span>Brüt Kar Marjı</span><strong>${percent(report.grossMargin)}</strong></div>
+    <div class="report-item"><span>Toplam Gider</span><strong>${money(report.totalExpense)}</strong></div>
+    <div class="report-item"><span>Vergi Öncesi Kar</span><strong>${money(report.profitBeforeTax)}</strong></div>
+    <div class="report-item"><span>Net Kar</span><strong>${money(report.netProfit)}</strong></div>
+    <div class="report-item"><span>Net Kar Marjı</span><strong>${percent(report.netMargin)}</strong></div>
   `;
 }
-
-function switchView(viewKey) {
-  const meta = pageMap[viewKey];
-  if (!meta) return;
-
-  document.querySelectorAll(".menu-item").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.view === viewKey);
-  });
-
-  document.querySelectorAll(".view").forEach(view => {
-    view.classList.remove("active");
-  });
-
-  const target = document.getElementById(meta.viewId);
-  if (target) target.classList.add("active");
-
-  setText("pageTitle", meta.title);
-  setText("pageSubtitle", meta.subtitle);
+function switchView(viewKey){
+  state.view=viewKey;
+  const meta=pageMap[viewKey];
+  document.querySelectorAll(".menu-item").forEach(btn=>btn.classList.toggle("active",btn.dataset.view===viewKey));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById(meta.viewId).classList.add("active");
+  setText("pageTitle",meta.title); setText("pageSubtitle",meta.subtitle);
 }
-
-function bindMenu() {
-  document.querySelectorAll(".menu-item").forEach(btn => {
-    btn.addEventListener("click", () => switchView(btn.dataset.view));
-  });
-}
-
-function init() {
+function bindMenu(){document.querySelectorAll(".menu-item").forEach(btn=>btn.onclick=()=>switchView(btn.dataset.view))}
+function renderAll(){
+  renderSelectors();
   renderSummary();
   renderMonthlySummaryTable();
-  renderCategorySummaryTable();
-  renderMonthlyPerformanceTable();
-  renderCustomersTable();
-  renderCategoriesTable();
-  renderReport();
-  bindMenu();
+  renderCategoryTables();
+  renderCustomers();
+  renderYONPlus();
+  renderYonRapor();
+  switchView(state.view);
 }
-
-init();
+bindMenu(); renderAll();
