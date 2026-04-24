@@ -26,6 +26,35 @@ function pct(v) {
 }
 function safe(value) { return Number(value || 0); }
 
+function formatVersionStamp(meta = {}) {
+  const source = meta.generatedAt ? new Date(meta.generatedAt) : new Date();
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const dd = String(source.getDate()).padStart(2, "0");
+  const mon = String(source.getMonth() + 1).padStart(2, "0");
+  const yy = String(source.getFullYear()).slice(-2);
+  return `${hh}${mm}${dd}${mon}${yy}`;
+}
+
+function formatDimension(value, category = "") {
+  if (value === null || value === undefined || value === "") return "";
+  const raw = String(value).trim();
+  const normalized = raw.replace(',', '.');
+  const numeric = Number(normalized);
+  const upperCategory = String(category || '').toUpperCase();
+  if (!Number.isNaN(numeric) && (upperCategory === 'MDF' || upperCategory === 'SUNTA') && numeric > 0 && numeric <= 100) {
+    return `${num(numeric, 0)} mm`;
+  }
+  return raw;
+}
+
+function formatCostProduct(row) {
+  const name = row['ÜRÜN'] ?? '—';
+  const dim = formatDimension(row['KALINLIK_BOY'], row['KATEGORİ']);
+  return dim ? `${name} • ${dim}` : name;
+}
+
 function currentYearData() { return DATA.years[state.year]; }
 function availableMonths() {
   return currentYearData().yonPlus.map(m => ({ value: String(m.month), label: m.label }));
@@ -275,7 +304,7 @@ function renderMaster() {
 
 function filteredCostRows() {
   return DATA.costRows.filter(r => {
-    const txt = `${r.WKOD} ${r.ÜRÜN} ${r.KATEGORİ} ${r.Currency}`.toLowerCase();
+    const txt = `${r.WKOD} ${r.ÜRÜN} ${r.KALINLIK_BOY ?? ""} ${r.KATEGORİ} ${r.Currency}`.toLowerCase();
     const sOk = !state.costSearch || txt.includes(state.costSearch.toLowerCase());
     const cOk = state.costCurrency === "Tümü" || (r.Currency || "—") === state.costCurrency;
     return sOk && cOk;
@@ -294,7 +323,7 @@ function renderCosts() {
   q("#costBody").innerHTML = filteredCostRows().slice(0,300).map(r => {
     const monthVal = state.year === "2025" ? r.months25[index] : r.months26[index];
     return `<tr>
-      <td>${r.WKOD ?? "—"}</td><td>${r.ÜRÜN ?? "—"}</td><td>${r.KATEGORİ ?? "—"}</td><td>${r.Currency ?? "—"}</td><td>${money(r.Base_Price)}</td><td>${money(monthVal)}</td>
+      <td>${r.WKOD ?? "—"}</td><td>${formatCostProduct(r)}</td><td>${r.KATEGORİ ?? "—"}</td><td>${r.Currency ?? "—"}</td><td>${money(r.Base_Price)}</td><td>${money(monthVal)}</td>
     </tr>`;
   }).join("");
 }
@@ -333,7 +362,7 @@ function updateHeader() {
   }[state.view];
   q("#pageTitle").textContent = meta[0];
   q("#pageSubtitle").textContent = meta[1];
-  q("#lastUpdate").textContent = `Son güncelleme: ${DATA.meta.generatedAt}`;
+  q("#lastUpdate").textContent = `Son versiyon: ${formatVersionStamp(DATA.meta)}`;
 }
 
 function render() {
