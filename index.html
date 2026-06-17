@@ -26,6 +26,7 @@
         <button class="menu-item" data-view="master">MASTER_ERP</button>
         <button class="menu-item" data-view="costs">Maliyetler</button>
         <button class="menu-item" data-view="expenses">Giderler</button>
+        <button class="menu-item" data-view="import">İçe Aktar</button>
         <button class="menu-item" data-view="control">Kontrol</button>
       </nav>
     </aside>
@@ -52,31 +53,19 @@
       <div id="yearNotice" class="notice hidden"></div>
 
       <section class="view active" id="overviewView">
-        <div class="cards-grid" id="overviewCards"></div>
-        <div class="cards-grid compare-grid" id="compareCards"></div>
-        <div class="two-col">
-          <div class="card">
-            <div class="card-title">Aylık Finansal Özet</div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Ay</th><th>Ciro</th><th>Maliyet</th><th>Brüt Kar</th><th>Marj</th></tr>
-                </thead>
-                <tbody id="overviewMonthlyBody"></tbody>
-              </table>
+        <div id="overviewConfidence" class="cards-grid"></div>
+        <div class="income-shell">
+          <div class="income-head">
+            <div>
+              <h3>Gelir Tablosu</h3>
+              <p>Satışlar, miktarlar, maliyetler, giderler ve net kar tek çalışma sayfasında.</p>
             </div>
+            <div id="incomeQuickTotals" class="income-totals"></div>
           </div>
-          <div class="card">
-            <div class="card-title">Kategori Özeti</div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Kategori</th><th>Adet</th><th>Ciro</th><th>Kar</th><th>Marj</th></tr>
-                </thead>
-                <tbody id="overviewCategoryBody"></tbody>
-              </table>
-            </div>
+          <div class="income-table-wrap">
+            <table class="income-table" id="incomeTable"></table>
           </div>
+          <div class="income-note">Dolu hücrelere tıklayarak kaynağı ve filtrelenebilir detay listesini açabilirsiniz.</div>
         </div>
       </section>
 
@@ -173,9 +162,10 @@
 
         <div class="card">
           <div class="card-title">Ürün Bazlı Maliyet Tablosu</div>
-          <div class="table-wrap">
-            <table class="wide-table">
-              <thead>
+          <p class="section-copy">Secili ay kolonlari WERP adlariyla gosterilir; tum ay seciminde son dolu ay kullanilir.</p>
+          <div class="table-wrap master-wrap">
+            <table class="wide-table master-table">
+              <thead id="masterHead">
                 <tr>
                   <th>Ürün Kodu</th><th>Ürün</th><th>Kategori</th>
                   <th>TADET</th><th>TCİRO</th><th>TMALİYET</th><th>TKAR</th><th>T%</th>
@@ -196,8 +186,10 @@
       </section>
 
       <section class="view" id="costsView">
-        <div class="card">
+        <div class="costs-layout">
+          <div class="card">
           <div class="card-title">Maliyetler</div>
+          <p class="section-copy">WKOD bazli maliyet listesi ve secili ay fiyatlari.</p>
           <div class="filters-grid">
             <label class="field"><span>Arama</span><input id="costSearch" type="text" placeholder="WKOD / ürün / kategori" /></label>
             <label class="field"><span>Para Birimi</span><select id="costCurrency"></select></label>
@@ -208,6 +200,34 @@
               <tbody id="costBody"></tbody>
             </table>
           </div>
+          <div id="costMeta" class="table-meta"></div>
+        </div>
+          <div class="card">
+          <div class="card-title">Yillik MDF / SUNTA Girisi</div>
+          <p class="section-copy">Secili yil icin MDF ve SUNTA baz maliyetini elle kaydedin.</p>
+          <div class="annual-input-grid">
+            <label class="field"><span>MDF Yillik</span><input id="annualMdfInput" type="text" inputmode="decimal" placeholder="orn. 18500" /></label>
+            <label class="field"><span>SUNTA Yillik</span><input id="annualSuntaInput" type="text" inputmode="decimal" placeholder="orn. 13250" /></label>
+            <div class="button-row annual-actions">
+              <button id="annualCostSave" type="button">Kaydet</button>
+              <button id="annualCostClear" type="button">Temizle</button>
+            </div>
+          </div>
+          <div id="annualCostSummary" class="import-summary"></div>
+          <div id="annualCostMeta" class="table-meta"></div>
+        </div>
+          <div class="card">
+          <div class="card-title">Ham Madde Eskalasyonu</div>
+          <p class="section-copy">WKOD bazinda ilk dolu ay ile guncel ay maliyet degisimi.</p>
+          <div id="escalationSummary" class="import-summary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead id="escalationHead"></thead>
+              <tbody id="escalationBody"></tbody>
+            </table>
+          </div>
+          <div id="escalationMeta" class="table-meta"></div>
+        </div>
         </div>
       </section>
 
@@ -230,10 +250,81 @@
         </div>
       </section>
 
+      <section class="view" id="importView">
+        <div class="import-layout">
+          <div class="card">
+            <div class="card-title">Haftalık Satış Dosyaları</div>
+            <label class="upload-box">
+              <input id="salesFiles" type="file" accept=".xls,.xlsx" multiple />
+              <span>Satış Excel dosyalarını seç</span>
+              <small>Fatura Satış Detay Kalem Listesi formatı</small>
+            </label>
+          </div>
+          <div class="card">
+            <div class="card-title">Gider Dosyaları</div>
+            <label class="upload-box">
+              <input id="expenseFiles" type="file" accept=".xlsx,.xls" multiple />
+              <span>Gider Excel dosyalarını seç</span>
+              <small>2025 Yılı Genel Gider Tablosu formatı</small>
+            </label>
+          </div>
+          <div class="card">
+            <div class="card-title">İşlem</div>
+            <div class="button-row">
+              <button id="importProcess">Dosyaları İşle</button>
+              <button id="importExport">JSON Dışa Aktar</button>
+              <button id="importClear" class="danger">Yerel Veriyi Temizle</button>
+            </div>
+            <div id="importSummary" class="import-summary"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">İçe Aktarım Özeti</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Yıl</th><th>Ay</th><th>Kategori</th><th>Satır</th><th>Adet</th><th>Ciro</th><th>Gider</th></tr></thead>
+              <tbody id="importPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">İşlem Kayıtları</div>
+          <div id="importLog" class="log-box"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 
+  <div class="detail-drawer" id="cellDetailDrawer" aria-hidden="true">
+    <div class="detail-panel">
+      <div class="detail-head">
+        <div>
+          <h3 id="detailTitle">Hücre Detayı</h3>
+          <p id="detailSubtitle"></p>
+        </div>
+        <button id="detailClose" type="button">×</button>
+      </div>
+      <div class="detail-filters">
+        <label class="field"><span>Filtre</span><input id="detailFilter" type="text" placeholder="Kaynak / kategori / ay ara" /></label>
+      </div>
+      <div class="detail-overview" id="detailOverview"></div>
+      <div class="detail-insights" id="detailInsights"></div>
+      <div class="table-wrap detail-table-wrap">
+        <table>
+          <thead id="detailHead"></thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="xlsx.full.min.js"></script>
+  <script>window.XLSX = window.XLSX || (typeof exports !== "undefined" ? exports : undefined);</script>
   <script src="report-data.js"></script>
+  <script src="report-detail-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
