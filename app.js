@@ -716,16 +716,16 @@ function yearConfidenceSummary(year = state.year) {
   const missingItems = [];
   let status = "ready";
   let statusLabel = "Hazir";
-  let statusReason = `${yearKey} verisi sunum icin kullanilabilir durumda.`;
+  let statusReason = `${yearKey} verisi sunum için kullanılabilir durumda.`;
 
   if (loadedMonths.length) {
-    completedItems.push(`Satis aylari ${monthSpanText(loadedMonths)}`);
+    completedItems.push(`Satış ayları ${monthSpanText(loadedMonths)}`);
   }
   if (salesRows.length) {
-    completedItems.push(`Satis detay ${num(salesRows.length)} satir${invoiceCount ? ` | ${num(invoiceCount)} fatura` : ""}`);
+    completedItems.push(`Satış detay ${num(salesRows.length)} satır${invoiceCount ? ` | ${num(invoiceCount)} fatura` : ""}`);
   }
   if (expenseMonthsLoaded.length) {
-    completedItems.push(`Gider kapsami ${monthSpanText(expenseMonthsLoaded)}`);
+    completedItems.push(`Gider kapsamı ${monthSpanText(expenseMonthsLoaded)}`);
   }
   if (expenseTotal > 0) {
     completedItems.push(`Toplam gider ${money(expenseTotal)}`);
@@ -737,32 +737,32 @@ function yearConfidenceSummary(year = state.year) {
     completedItems.push(`Kontrol ${controlPassCount}/${checks.length}`);
   }
   if (!completedItems.length) {
-    completedItems.push("Veri baglantisi yok");
+    completedItems.push("Veri bağlantısı yok");
   }
 
   if (closedMissingMonths.length) {
-    missingItems.push(`Satis eksigi ${monthSpanText(closedMissingMonths)}`);
+    missingItems.push(`Satış eksiği ${monthSpanText(closedMissingMonths)}`);
   }
   if (expenseClosedMissingMonths.length) {
-    missingItems.push(`Gider eksigi ${monthSpanText(expenseClosedMissingMonths)}`);
+    missingItems.push(`Gider eksiği ${monthSpanText(expenseClosedMissingMonths)}`);
   }
   if (!payrollMonths.length && expenseMonthsLoaded.length) {
-    missingItems.push("Bordro detayi yok");
+    missingItems.push("Bordro detayı yok");
   }
   if (checks.length && controlPassCount < checks.length) {
-    missingItems.push(`Kontrol farki ${checks.length - controlPassCount}`);
+    missingItems.push(`Kontrol farkı ${checks.length - controlPassCount}`);
   }
   if (blankCustomerCount) {
-    missingItems.push(`Bos musteri ${num(blankCustomerCount)}`);
+    missingItems.push(`Boş müşteri ${num(blankCustomerCount)}`);
   }
   if (blankInvoiceCount) {
-    missingItems.push(`Bos fatura ${num(blankInvoiceCount)}`);
+    missingItems.push(`Boş fatura ${num(blankInvoiceCount)}`);
   }
   if (Math.abs(revenueDiff) >= 1) {
-    missingItems.push(`Detay ciro farki ${money(revenueDiff)}`);
+    missingItems.push(`Detay ciro farkı ${money(revenueDiff)}`);
   }
   if (Math.abs(expenseDiff) >= 1) {
-    missingItems.push(`Gider farki ${money(expenseDiff)}`);
+    missingItems.push(`Gider farkı ${money(expenseDiff)}`);
   }
   if (activeMonth) {
     missingItems.push(`Aktif ay ${monthLabels[activeMonth]} ${yearKey}`);
@@ -778,20 +778,20 @@ function yearConfidenceSummary(year = state.year) {
     status = "risk";
     statusLabel = "Eksik";
     statusReason = blankCustomerCount || blankInvoiceCount
-      ? "Detay listesinde kimlik bosluklari var; sunum icin kaynak verisi yeniden baglanmali."
+      ? "Detay listesinde kimlik boşlukları var; sunum için kaynak verisi yeniden bağlanmalı."
       : Math.abs(revenueDiff) >= 1 || Math.abs(expenseDiff) >= 1
-      ? "Detay veri ile ozet toplamlar birebir eslesmiyor."
+      ? "Detay veri ile özet toplamlar birebir eşleşmiyor."
       : expenseClosedMissingMonths.length
-      ? "Kapanmis aylarin gider kapsami eksik; net kar resmi tamam degil."
+      ? "Kapanmış ayların gider kapsamı eksik; net kar resmi tamam değil."
       : expenseMissing
       ? "Gider ve bordro bagli olmadigi icin net kar resmi tamam degil."
-      : "Kapanmis aylarin tamami raporda gorunmuyor.";
+      : "Kapanmış ayların tamamı raporda görünmüyor.";
   } else if ((checks.length && controlPassCount < checks.length) || activeMonth) {
     status = "warn";
     statusLabel = "Kontrol Et";
     statusReason = checks.length && controlPassCount < checks.length
-      ? "Kontrol ekraninda fark bulunan toplamlar var."
-      : `${monthLabels[activeMonth]} ${yearKey} aktif ay; sunum YTD olarak okunmali.`;
+      ? "Kontrol ekranında fark bulunan toplamlar var."
+      : `${monthLabels[activeMonth]} ${yearKey} aktif ay; sunum YTD olarak okunmalı.`;
   }
 
   return {
@@ -1008,11 +1008,9 @@ function normalizePayrollDetailRow(row) {
 function detailStore() {
   if (DETAIL_CACHE) return DETAIL_CACHE;
   const imports = loadImports();
-  const salesRows = dedupeRows(
-    [...(DETAIL_BASE.sales || []).map(normalizeSalesDetailRow), ...(imports.salesRows || []).map(normalizeSalesDetailRow)]
-      .filter(row => row.year && row.month && (row.amount || row.quantity) && row.product),
-    row => `${row.year}|${row.month}|${row.date}|${row.invoiceNo}|${row.customerCode}|${row.productCode}|${row.product}|${row.quantity}|${row.amount}|${row.sourceFile}`
-  ).sort((a, b) =>
+  const salesRows = [...(DETAIL_BASE.sales || []).map(normalizeSalesDetailRow), ...(imports.salesRows || []).map(normalizeSalesDetailRow)]
+    .filter(row => row.year && row.month && (row.amount || row.quantity) && row.product)
+    .sort((a, b) =>
     a.year - b.year ||
     a.month - b.month ||
     String(a.date).localeCompare(String(b.date)) ||
@@ -1443,16 +1441,16 @@ function renderOverviewSummaryBar() {
   const salesSpan = summary.loadedMonths.length ? monthSpanText(summary.loadedMonths) : "veri yok";
   const expenseSpan = summary.expenseMonthsLoaded.length ? monthSpanText(summary.expenseMonthsLoaded) : "bekleniyor";
   const followUps = summary.missingItems.filter(item => item && item !== "Eksik veri yok").slice(0, 3);
-  const headline = summary.statusReason || (summary.expenseMissing ? "Sunum YTD okunmalÄ±." : "Sunum kullanÄ±ma hazÄ±r.");
+  const headline = summary.statusReason || (summary.expenseMissing ? "Sunum YTD okunmalı." : "Sunum kullanıma hazır.");
   const metaItems = [
     summary.activeMonth ? `${monthLabels[summary.activeMonth]} aktif ay` : "",
-    summary.loadedMonths.length ? `SatÄ±ÅŸ ${salesSpan}` : "",
-    summary.lastSalesDate ? `Son kayÄ±t ${formatDateLabel(summary.lastSalesDate)}` : ""
+    summary.loadedMonths.length ? `Satış ${salesSpan}` : "",
+    summary.lastSalesDate ? `Son kayıt ${formatDateLabel(summary.lastSalesDate)}` : ""
   ].filter(Boolean);
   const pills = [
     { tone: summary.status, label: summary.statusLabel },
     { tone: summary.closedMissingMonths.length ? "warn" : "ready", label: `Ay ${closedValue}` },
-    { tone: "ready", label: `SatÄ±r ${num(summary.salesRowCount)}` },
+    { tone: "ready", label: `Satır ${num(summary.salesRowCount)}` },
     { tone: summary.invoiceCount ? "ready" : "warn", label: `Fatura ${num(summary.invoiceCount)}` },
     { tone: summary.expenseMissing ? "warn" : "ready", label: summary.expenseMissing ? `Gider ${expenseSpan}` : `Gider ${money(summary.expenseTotal)}` },
     { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` }
@@ -1842,7 +1840,7 @@ function renderMaster() {
     </tr>`;
   }).join("");
   q("#masterPageLabel").textContent = `Sayfa ${state.masterPage} / ${totalPages}`;
-  q("#masterPageLabel").textContent = `Sayfa ${state.masterPage} / ${totalPages} • ${slice.length.toLocaleString("tr-TR")} kayit`;
+  q("#masterPageLabel").textContent = `Sayfa ${state.masterPage} / ${totalPages} • ${slice.length.toLocaleString("tr-TR")} kayıt`;
 }
 
 function filteredCostRowsLegacy() {
@@ -2342,7 +2340,7 @@ function renderCosts() {
     annualInputs.MDF !== null ? "MDF" : "",
     annualInputs.SUNTA !== null ? "SUNTA" : ""
   ].filter(Boolean);
-  q("#escalationMeta").textContent = `${escalationRows.length.toLocaleString("tr-TR")} kayıt • İlk dolu ay ile güncel ay maliyeti karşılaştırılıyor${manualLocked.length ? ` • ${manualLocked.join(" + ")} manuel yillik baz ile ayrildi` : ""}${fallbackCount ? ` • ${fallbackCount.toLocaleString("tr-TR")} satırda seçili ay boş olduğu için son dolu ay kullanıldı` : ""}`;
+  q("#escalationMeta").textContent = `${escalationRows.length.toLocaleString("tr-TR")} kayıt • İlk dolu ay ile güncel ay maliyeti karşılaştırılıyor${manualLocked.length ? ` • ${manualLocked.join(" + ")} manuel yıllık baz ile ayrıldı` : ""}${fallbackCount ? ` • ${fallbackCount.toLocaleString("tr-TR")} satırda seçili ay boş olduğu için son dolu ay kullanıldı` : ""}`;
 
   q("#productCostHead").innerHTML = `<tr>
     <th>${renderSortButton("Kod", "code", "productCostSortKey", "productCostSortDir", "asc")}</th>
@@ -2454,12 +2452,12 @@ function renderControl() {
       right: safe(currentYearData().overview?.totalExpense)
     },
     {
-      label: "Bos musteri satiri",
+      label: "Boş müşteri satırı",
       left: summary.blankCustomerCount,
       right: 0
     },
     {
-      label: "Bos fatura satiri",
+      label: "Boş fatura satırı",
       left: summary.blankInvoiceCount,
       right: 0
     },
@@ -2475,7 +2473,7 @@ function renderControl() {
     ? `
       <div class="control-trace">
         <div class="control-trace-head">
-          <strong>Kimlik boslugu izleme</strong>
+          <strong>Kimlik boşluğu izleme</strong>
           <span>${num(audit.problemGroups.length)} kaynakta iz var</span>
         </div>
         <div class="control-trace-list">
@@ -2483,9 +2481,9 @@ function renderControl() {
             <div class="control-trace-item">
               <strong>${esc(group.sourceFile)}</strong>
               <div class="control-trace-meta">
-                <span>Satir ${num(group.count)}</span>
-                <span>Bos musteri ${num(group.blankCustomerCount)}</span>
-                <span>Bos fatura ${num(group.blankInvoiceCount)}</span>
+                <span>Satır ${num(group.count)}</span>
+                <span>Boş müşteri ${num(group.blankCustomerCount)}</span>
+                <span>Boş fatura ${num(group.blankInvoiceCount)}</span>
                 <span>Yetim ${num(group.orphanCount)}</span>
               </div>
             </div>
@@ -2506,8 +2504,8 @@ function renderControl() {
     : `
       <div class="control-trace ok">
         <div class="control-trace-head">
-          <strong>Kimlik boslugu izleme</strong>
-          <span>Secili yil icin kayitsiz satir izi bulunmadi.</span>
+          <strong>Kimlik boşluğu izleme</strong>
+          <span>Seçili yıl için kayıtsız satır izi bulunmadı.</span>
         </div>
       </div>
     `;
@@ -2844,7 +2842,7 @@ function updateHeader() {
     control:["Kontrol","Toplamlar arası doğrulama ekranı"]
   }[state.view];
   q("#pageTitle").textContent = meta[0];
-  q("#pageSubtitle").textContent = state.view === "overview" ? "Gelir tablosu ve denetim Ã¶zeti" : meta[1];
+  q("#pageSubtitle").textContent = state.view === "overview" ? "Gelir tablosu ve denetim özeti" : meta[1];
   q("#lastUpdate").textContent = `Son versiyon: ${formatVersionStamp(DATA.meta)}`;
 }
 
