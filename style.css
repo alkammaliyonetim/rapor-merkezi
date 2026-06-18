@@ -246,6 +246,10 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
 .master-wrap{max-height:calc(100vh - 320px)}
 .master-table .master-group-head th{background:#0d1a31;color:#dbeafe;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;z-index:3}
 .master-table .master-sub-head th{background:rgba(255,255,255,.04);color:var(--text);font-size:12px;font-weight:700;vertical-align:bottom;z-index:2}
+.master-table .master-full-head th{min-width:86px;white-space:nowrap}
+.master-table .master-full-head th:nth-child(1){min-width:112px}
+.master-table .master-full-head th:nth-child(2){min-width:280px}
+.master-table .master-full-head th:nth-child(3){min-width:110px}
 .master-table .master-sub-head small{display:block;margin-top:4px;color:var(--muted);font-size:10px;font-weight:600}
 .master-col-code{display:block;color:var(--text);font-size:12px;font-weight:800}
 .wide-table th,.wide-table td{font-size:12px}

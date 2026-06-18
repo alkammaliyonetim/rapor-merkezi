@@ -7,7 +7,7 @@ const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
 let DETAIL_CACHE = null;
-const state = { year: "2025", month: "all", view: "overview", masterPage: 1, masterPageSize: 50, masterSearch: "", masterCategory: "Tümü", costSearch: "", costCurrency: "Tümü", costCategory: "Tümü", costSortKey: "yearTotal", costSortDir: "desc", escalationSortKey: "deltaPct", escalationSortDir: "desc", productCostSortKey: "totalCost", productCostSortDir: "desc", expenseSortKey: "total", expenseSortDir: "desc", importLog: [], detailPayload: null, detailFilter: "" };
+const state = { year: "2025", month: "all", view: "overview", masterPage: 1, masterPageSize: 50, masterSearch: "", masterCategory: "Tümü", masterMode: "summary", costSearch: "", costCurrency: "Tümü", costCategory: "Tümü", costSortKey: "yearTotal", costSortDir: "desc", escalationSortKey: "deltaPct", escalationSortDir: "desc", productCostSortKey: "totalCost", productCostSortDir: "desc", expenseSortKey: "total", expenseSortDir: "desc", importLog: [], detailPayload: null, detailFilter: "" };
 
 const monthLabels = {
   1:"Ocak",2:"Şubat",3:"Mart",4:"Nisan",5:"Mayıs",6:"Haziran",
@@ -34,6 +34,38 @@ function pct(v) {
 function safe(value) { return Number(value || 0); }
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+}
+
+function fixMojibakeText(value) {
+  const text = String(value ?? "");
+  if (!/[ÃÄÅÂâ]/.test(text)) return text;
+  try {
+    return decodeURIComponent(escape(text));
+  } catch (error) {
+    return text
+      .replaceAll("Ãœ", "Ü").replaceAll("Ã¼", "ü")
+      .replaceAll("Ã‡", "Ç").replaceAll("Ã§", "ç")
+      .replaceAll("Ã–", "Ö").replaceAll("Ã¶", "ö")
+      .replaceAll("Ä°", "İ").replaceAll("Ä±", "ı")
+      .replaceAll("Åž", "Ş").replaceAll("ÅŸ", "ş")
+      .replaceAll("Äž", "Ğ").replaceAll("ÄŸ", "ğ")
+      .replaceAll("â€”", "—").replaceAll("â€¢", "•");
+  }
+}
+
+function repairRenderedText(root = document.body) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node => {
+    const fixed = fixMojibakeText(node.nodeValue);
+    if (fixed !== node.nodeValue) node.nodeValue = fixed;
+  });
+  root.querySelectorAll("input[placeholder], textarea[placeholder], [title]").forEach(el => {
+    if (el.placeholder) el.placeholder = fixMojibakeText(el.placeholder);
+    if (el.title) el.title = fixMojibakeText(el.title);
+  });
 }
 
 function isPlaceholderIdentityValue(value) {
@@ -1340,6 +1372,7 @@ function renderCellDetails() {
   q("#detailBody").innerHTML = rows.map(row => `
     <tr>${(payload.columns || []).map(column => `<td>${formatDetailCell(row, column)}</td>`).join("")}</tr>
   `).join("") || `<tr><td colspan="${Math.max((payload.columns || []).length, 1)}">${esc(payload.emptyMessage || "Bu filtreye uygun kayıt yok.")}</td></tr>`;
+  repairRenderedText(q("#cellDetailDrawer"));
 }
 
 function incomeCell(value, kind, month, itemName = "", className = "") {
@@ -1611,6 +1644,59 @@ function monthMetric(row) {
   return months[idx] || {};
 }
 
+const masterMonthMetricColumns = [
+  ["A", "number"], ["BM", "money"], ["LG", "money"], ["KAP1", "money"],
+  ["KAP2", "money"], ["TUT", "money"], ["GG", "money"], ["DG", "money"],
+  ["C", "money"], ["TM", "money"], ["KAR", "money"], ["MARJ", "pct"]
+];
+
+function masterFullColumns() {
+  const columns = [
+    { label: "ÜRÜN KODU", value: row => row.code },
+    { label: "ÜRÜN", value: row => row.name },
+    { label: "KATEGORİ", value: row => row.category },
+    { label: "TADET25", format: "number", value: row => row.totals25?.adet },
+    { label: "TCİRO25", format: "money", value: row => row.totals25?.ciro },
+    { label: "TMALİYET25", format: "money", value: row => row.totals25?.maliyet },
+    { label: "TKAR25", format: "money", value: row => row.totals25?.kar },
+    { label: "T%25", format: "pct", value: row => row.totals25?.marj },
+    { label: "TADET26", format: "number", value: row => row.totals26?.adet },
+    { label: "TCİRO26", format: "money", value: row => row.totals26?.ciro },
+    { label: "TMALİYET26", format: "money", value: row => row.totals26?.maliyet },
+    { label: "TKAR26", format: "money", value: row => row.totals26?.kar },
+    { label: "T%26", format: "pct", value: row => row.totals26?.marj },
+    { label: "MDK", format: "raw", value: row => row.recipe?.MDK },
+    { label: "MDA", format: "raw", value: row => row.recipe?.MDA },
+    { label: "MKOD", format: "raw", value: row => row.recipe?.MKOD },
+    { label: "SUK", format: "raw", value: row => row.recipe?.SUK },
+    { label: "SUA", format: "raw", value: row => row.recipe?.SUA },
+    { label: "SKOD", format: "raw", value: row => row.recipe?.SKOD },
+    { label: "KAP1KOD", format: "raw", value: row => row.recipe?.KAP1KOD },
+    { label: "KAP2KOD", format: "raw", value: row => row.recipe?.KAP2KOD },
+    { label: "TUKOD", format: "raw", value: row => row.recipe?.TUKOD }
+  ];
+  const monthRowsKey = state.year === "2025" ? "months25" : "months26";
+  for (let monthNo = 1; monthNo <= 12; monthNo += 1) {
+    masterMonthMetricColumns.forEach(([metric, format]) => {
+      const label = metric === "MARJ" ? `${monthNo}%${monthNo}` : `${monthNo}${metric}`;
+      columns.push({
+        label,
+        format,
+        value: row => row[monthRowsKey]?.[monthNo - 1]?.[metric]
+      });
+    });
+  }
+  return columns;
+}
+
+function formatMasterFullValue(value, format) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (format === "money") return money(value);
+  if (format === "number") return num(value, 3);
+  if (format === "pct") return typeof value === "number" ? pct(value) : esc(value || "—");
+  return esc(value);
+}
+
 function filteredMasterRows() {
   const yearKey = state.year === "2025" ? "totals25" : "totals26";
   return DATA.masterRows.filter(r => {
@@ -1639,6 +1725,7 @@ function renderMaster() {
     catSel.dataset.filled = "1";
   }
   catSel.value = state.masterCategory;
+  if (q("#masterMode")) q("#masterMode").value = state.masterMode;
 
   const rows = filteredMasterRows();
   const pageSize = Number(state.masterPageSize);
@@ -1667,6 +1754,32 @@ function renderMaster() {
   const yearKey = state.year === "2025" ? "totals25" : "totals26";
   const totalRevenue = rows.reduce((sum, row) => sum + safe(row[yearKey]?.ciro), 0);
   const totalCost = rows.reduce((sum, row) => sum + safe(monthMetric(row).TM), 0);
+
+  if (state.masterMode === "full") {
+    const columns = masterFullColumns();
+    q("#masterHead").innerHTML = `
+      <tr class="master-sub-head master-full-head">
+        ${columns.map(column => `<th><span class="master-col-code">${esc(column.label)}</span></th>`).join("")}
+      </tr>
+    `;
+    q("#masterStats").innerHTML = `
+      <div class="master-stats-row">
+        <span class="summary-pill">${rows.length.toLocaleString("tr-TR")} ürün</span>
+        <span class="summary-pill">${state.year} tüm başlıklar</span>
+        <span class="summary-pill">${columns.length.toLocaleString("tr-TR")} kolon</span>
+        <span class="summary-pill">${activeCount.toLocaleString("tr-TR")} aktif ürün</span>
+        <span class="summary-pill">Toplam ciro: ${money(totalRevenue)}</span>
+      </div>
+      <div class="master-stats-note">
+        Excel başlık düzeni: ürün kartı, 2025/2026 yıl toplamları, reçete kodları ve seçili yılın 12 aylık WERP maliyet alanları birlikte gösterilir.
+      </div>
+    `;
+    q("#masterBody").innerHTML = slice.map(row => `
+      <tr>${columns.map(column => `<td>${formatMasterFullValue(column.value(row), column.format)}</td>`).join("")}</tr>
+    `).join("");
+    q("#masterPageLabel").textContent = `Sayfa ${state.masterPage} / ${totalPages} • ${slice.length.toLocaleString("tr-TR")} kayıt`;
+    return;
+  }
 
   q("#masterHead").innerHTML = `
     <tr class="master-group-head">
@@ -2764,6 +2877,7 @@ function render() {
   q(`#${state.view}View`).classList.add("active");
   qa(".menu-item").forEach(btn => btn.classList.toggle("active", btn.dataset.view === state.view));
   syncDebugState();
+  repairRenderedText(q(".app-shell"));
 }
 
 function bind() {
@@ -2798,6 +2912,7 @@ function bind() {
 
   q("#masterSearch").addEventListener("input", e => { state.masterSearch = e.target.value; state.masterPage = 1; renderMaster(); });
   q("#masterCategory").addEventListener("change", e => { state.masterCategory = e.target.value; state.masterPage = 1; renderMaster(); });
+  q("#masterMode")?.addEventListener("change", e => { state.masterMode = e.target.value; state.masterPage = 1; renderMaster(); });
   q("#masterPageSize").addEventListener("change", e => { state.masterPageSize = Number(e.target.value); state.masterPage = 1; renderMaster(); });
   q("#masterPrev").addEventListener("click", () => { state.masterPage = Math.max(1, state.masterPage - 1); renderMaster(); });
   q("#masterNext").addEventListener("click", () => { state.masterPage += 1; renderMaster(); });
