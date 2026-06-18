@@ -68,6 +68,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:
 .income-table .expense-line th,.income-table .expense-line td{background:#d9edf7;color:#111827}
 .income-table .total-line th,.income-table .total-line td{background:#f2f2f2!important;color:#111827;font-weight:950;border-top:2px solid #111827}
 .income-table .gross-line th,.income-table .gross-line td,.income-table .net-line th,.income-table .net-line td{background:#252513!important;color:#fff;font-weight:950}
+.income-table td[data-tooltip]{position:relative}
+.income-hover-tip{position:fixed;z-index:80;display:none;min-width:220px;max-width:290px;background:#0f172a;color:#fff;border:1px solid #38bdf8;border-radius:8px;box-shadow:0 14px 35px rgba(2,6,23,.38);padding:9px 10px;text-align:left;white-space:pre-line;font-size:11px;line-height:1.45;font-weight:700;pointer-events:none}
+.income-hover-tip.open{display:block}
 .income-table .income-value{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 .income-table .income-value:hover{outline:2px solid #2563eb;outline-offset:-2px}
 .income-table .year-total{background:#67c2ad!important;font-weight:950}

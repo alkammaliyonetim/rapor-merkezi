@@ -1375,13 +1375,113 @@ function renderCellDetails() {
 
 function incomeCell(value, kind, month, itemName = "", className = "") {
   const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
-  const attrs = isFilled ? ` class="income-value ${className}" data-kind="${kind}" data-month="${month}" data-item="${esc(itemName)}"` : ` class="${className}"`;
+  const tooltip = buildIncomeHoverTooltip(kind, month, itemName, value, "money");
+  const attrs = isFilled ? ` class="income-value ${className}" data-kind="${kind}" data-month="${month}" data-item="${esc(itemName)}" data-tooltip="${esc(tooltip)}"` : ` class="${className}" data-tooltip="${esc(tooltip)}"`;
   return `<td${attrs}>${isFilled ? money(value) : "0"}</td>`;
 }
 
 function incomeQtyCell(value, month, itemName, unit) {
   const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
-  return `<td class="${isFilled ? "income-value" : ""}" ${isFilled ? `data-kind="qty" data-month="${month}" data-item="${esc(itemName)}"` : ""}>${isFilled ? num(value, unit === "M2" || unit === "M" ? 3 : 0) : "0"}</td>`;
+  const tooltip = buildIncomeHoverTooltip("qty", month, itemName, value, "qty", unit);
+  return `<td class="${isFilled ? "income-value" : ""}" data-tooltip="${esc(tooltip)}" ${isFilled ? `data-kind="qty" data-month="${month}" data-item="${esc(itemName)}"` : ""}>${isFilled ? num(value, unit === "M2" || unit === "M" ? 3 : 0) : "0"}</td>`;
+}
+
+function incomeMetricValue(yearData, kind, month, itemName = "") {
+  if (!yearData) return 0;
+  const monthRow = (yearData.yonPlus || []).find(entry => entry.month === month) || { categories: [], total: {} };
+  const category = itemName ? (monthRow.categories || []).find(entry => entry.name === itemName) || {} : monthRow.total || {};
+  if (kind === "sales") return safe(itemName ? category.ciro : monthRow.total?.ciro);
+  if (kind === "qty") return safe(itemName ? category.adet : monthRow.total?.adet);
+  if (kind === "cost") return safe(itemName ? category.maliyet : monthRow.total?.maliyet);
+  if (kind === "gross") return safe(monthRow.total?.kar);
+  if (kind === "expense") {
+    if (itemName) {
+      const expenseRow = (yearData.expenseRows || DATA.expenseRows || []).find(row => row[0] === itemName);
+      return safe(expenseRow?.[month]);
+    }
+    return expenseMonthTotal(yearData, month);
+  }
+  if (kind === "net") return safe(monthRow.total?.kar) - expenseMonthTotal(yearData, month);
+  return 0;
+}
+
+function incomeMetricSeries(yearData, kind, itemName = "") {
+  return Array.from({ length: 12 }, (_, idx) => incomeMetricValue(yearData, kind, idx + 1, itemName));
+}
+
+function averageFilled(values) {
+  const filled = values.filter(value => value !== null && value !== undefined && value !== "" && safe(value) !== 0);
+  if (!filled.length) return 0;
+  return filled.reduce((sum, value) => sum + safe(value), 0) / filled.length;
+}
+
+function formatIncomeHoverValue(value, format = "money", unit = "") {
+  if (format === "qty") return `${num(value, unit === "M2" || unit === "M" ? 3 : 0)}${unit ? ` ${unit}` : ""}`;
+  return money(value);
+}
+
+function buildIncomeHoverTooltip(kind, month, itemName, monthValue, format = "money", unit = "") {
+  const yearData = currentYearData();
+  const previousYear = String(Number(state.year) - 1);
+  const previousYearData = DATA.years?.[previousYear];
+  const currentSeries = incomeMetricSeries(yearData, kind, itemName);
+  const previousSeries = incomeMetricSeries(previousYearData, kind, itemName);
+  const currentTotal = currentSeries.reduce((sum, value) => sum + safe(value), 0);
+  const currentAverage = averageFilled(currentSeries);
+  const previousAverage = averageFilled(previousSeries);
+  const subject = itemName || ({
+    sales: "Toplam satış",
+    qty: "Toplam miktar",
+    cost: "Toplam maliyet",
+    gross: "Brüt kar",
+    expense: "Toplam gider",
+    net: "Net kar"
+  }[kind] || "Hücre");
+
+  return [
+    `${subject} - ${monthLabels[month]} ${state.year}`,
+    `Bu ay: ${formatIncomeHoverValue(monthValue, format, unit)}`,
+    `Bu yıl toplam: ${formatIncomeHoverValue(currentTotal, format, unit)}`,
+    `Bu yıl ortalama: ${formatIncomeHoverValue(currentAverage, format, unit)}`,
+    `Geçen yıl ortalama: ${previousYearData ? formatIncomeHoverValue(previousAverage, format, unit) : "veri yok"}`
+  ].join("\n");
+}
+
+function incomeHoverTip() {
+  let tip = q("#incomeHoverTip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.id = "incomeHoverTip";
+    tip.className = "income-hover-tip";
+    tip.setAttribute("role", "tooltip");
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+
+function showIncomeHoverTip(cell, event) {
+  const text = cell?.dataset?.tooltip || "";
+  if (!text) return;
+  const tip = incomeHoverTip();
+  tip.textContent = text;
+  tip.classList.add("open");
+  moveIncomeHoverTip(event);
+}
+
+function moveIncomeHoverTip(event) {
+  const tip = q("#incomeHoverTip");
+  if (!tip?.classList.contains("open")) return;
+  const gap = 14;
+  const width = tip.offsetWidth || 260;
+  const height = tip.offsetHeight || 120;
+  const x = Math.min(window.innerWidth - width - 12, Math.max(12, event.clientX + gap));
+  const y = Math.min(window.innerHeight - height - 12, Math.max(12, event.clientY + gap));
+  tip.style.left = `${x}px`;
+  tip.style.top = `${y}px`;
+}
+
+function hideIncomeHoverTip() {
+  q("#incomeHoverTip")?.classList.remove("open");
 }
 
 function renderOverviewConfidence() {
@@ -2889,6 +2989,17 @@ function bind() {
     const labels = { sales: "Satış", qty: "Miktar", cost: "Maliyet", gross: "Brüt Kar", expense: "Gider", net: "Net Kar" };
     const payload = buildDetailPayload(kind, month, item);
     openCellDetail(`${labels[kind] || "Hücre"} Detayı`, `${state.year} • ${monthLabels[month]}${item ? " • " + item : ""}`, payload);
+  });
+  q("#incomeTable")?.addEventListener("mouseover", e => {
+    const cell = e.target.closest("td[data-tooltip]");
+    if (cell) showIncomeHoverTip(cell, e);
+  });
+  q("#incomeTable")?.addEventListener("mousemove", e => {
+    if (e.target.closest("td[data-tooltip]")) moveIncomeHoverTip(e);
+  });
+  q("#incomeTable")?.addEventListener("mouseout", e => {
+    const cell = e.target.closest("td[data-tooltip]");
+    if (cell && (!e.relatedTarget || !cell.contains(e.relatedTarget))) hideIncomeHoverTip();
   });
   q("#detailClose")?.addEventListener("click", () => {
     q("#cellDetailDrawer").classList.remove("open");
