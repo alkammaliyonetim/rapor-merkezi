@@ -2,6 +2,7 @@
 const IMPORT_STORAGE_KEY = "raporMerkeziImportsV1";
 const ANNUAL_INPUT_STORAGE_KEY = "raporMerkeziAnnualInputsV1";
 const EXPENSE_EDIT_STORAGE_KEY = "raporMerkeziExpenseEditsV1";
+const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
@@ -107,6 +108,21 @@ function saveExpenseEdits(edits) {
   localStorage.setItem(EXPENSE_EDIT_STORAGE_KEY, JSON.stringify(edits));
 }
 
+function loadCostEdits() {
+  try {
+    const raw = localStorage.getItem(COST_EDIT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveCostEdits(edits) {
+  localStorage.setItem(COST_EDIT_STORAGE_KEY, JSON.stringify(edits));
+}
+
 function loadAnnualInputs() {
   try {
     const raw = localStorage.getItem(ANNUAL_INPUT_STORAGE_KEY);
@@ -145,6 +161,7 @@ function hydrateData(base) {
   const data = cloneData(base);
   applyImportsToData(data, loadImports());
   applyExpenseEditsToData(data, loadExpenseEdits());
+  applyCostEditsToData(data, loadCostEdits());
   return data;
 }
 
@@ -500,6 +517,31 @@ function applyExpenseEditsToData(data, edits) {
     });
     recalcExpenseOverview(yearData);
   });
+}
+
+function applyCostEditsToData(data, edits) {
+  if (!data?.costRows || !edits || typeof edits !== "object") return;
+  data.costRows.forEach(row => {
+    const wkod = String(row?.WKOD ?? "");
+    if (!wkod) return;
+    ["2025", "2026"].forEach(year => {
+      const editedMonths = edits?.[year]?.[wkod];
+      if (!Array.isArray(editedMonths)) return;
+      const target = year === "2025" ? row.months25 : row.months26;
+      if (!Array.isArray(target)) return;
+      for (let idx = 0; idx < 12; idx += 1) target[idx] = safe(editedMonths[idx]);
+    });
+  });
+}
+
+function persistCostRowEdit(year, wkod, monthValues) {
+  const code = String(wkod || "");
+  if (!code) return;
+  const edits = loadCostEdits();
+  const yearKey = String(year);
+  edits[yearKey] = edits[yearKey] || {};
+  edits[yearKey][code] = Array.from({ length: 12 }, (_, idx) => safe(monthValues?.[idx]));
+  saveCostEdits(edits);
 }
 
 function persistExpenseRowEdit(year, row) {
@@ -1265,7 +1307,7 @@ function renderInsightBlock(block) {
       <h4>${esc(block.title)}</h4>
       <ul>
         ${block.items.map(item => `
-          <li><span>${esc(item.label)}</span><span>${esc(valueText(block.kind || "money", item.value))}</span></li>
+          <li><span>${esc(item.label)}</span><span>${esc(block.kind === "text" ? item.value : valueText(block.kind || "money", item.value))}</span></li>
         `).join("")}
       </ul>
     </div>
@@ -1277,6 +1319,8 @@ function formatDetailCell(row, column) {
   if (column.format === "money") return money(value);
   if (column.format === "qty") return valueText("qty", value, row[column.unitKey || "unit"] || "");
   if (column.format === "number") return num(value, 0);
+  if (column.format === "rate") return value === null || value === undefined || Number.isNaN(Number(value)) ? "—" : num(value, 4);
+  if (column.format === "pct") return pct(value);
   return esc(value || "—");
 }
 
@@ -1779,6 +1823,83 @@ function currencyRateLabel(row) {
   return num(row.exchangeRate, 4);
 }
 
+function costRowByCode(wkod) {
+  return filteredCostRows().find(row => row.wkod === String(wkod));
+}
+
+function buildCostFormulaPayload(row, monthNo) {
+  const monthIndex = Math.max(0, Number(monthNo) - 1);
+  const value = safe(row.monthValues?.[monthIndex]);
+  const basePrice = safe(row.basePrice);
+  const currency = normalizeCurrency(row.currency);
+  const rate = impliedExchangeRate(basePrice, value, currency);
+  const points = (row.monthValues || []).map((cost, idx) => ({ month: idx + 1, label: monthLabels[idx + 1], cost: safe(cost) }));
+  const first = points.find(point => point.cost > 0) || points[monthIndex] || { month: monthNo, label: monthLabels[monthNo], cost: 0 };
+  const selected = points[monthIndex] || { month: monthNo, label: monthLabels[monthNo], cost: value };
+  const delta = selected.cost - first.cost;
+  const deltaPct = first.cost ? delta / first.cost : null;
+  const formula = currency === "TL"
+    ? `TL ürün: aylık maliyet doğrudan ${money(value)} olarak alınır.`
+    : `${currency} baz fiyat ${num(basePrice, 4)} x kullanılan kur ${rate === null ? "—" : num(rate, 4)} = ${money(value)}`;
+  const monthRows = points.map(point => ({
+    month: `${point.label} ${String(state.year).slice(-2)}`,
+    cost: point.cost,
+    rate: impliedExchangeRate(basePrice, point.cost, currency),
+    delta: point.cost - first.cost,
+    deltaPct: first.cost ? (point.cost - first.cost) / first.cost : null
+  }));
+  return {
+    stats: [
+      { label: "WKOD", value: row.wkod },
+      { label: "Ürün", value: row.formattedProduct || row.product },
+      { label: "Seçili Ay Maliyeti", value: money(value) },
+      { label: "Kullanılan Kur", value: rate === null ? "—" : num(rate, 4) },
+      { label: "İlk Dolu Ay", value: `${first.label} ${money(first.cost)}` },
+      { label: "Eskalasyon", value: `${money(delta)} / ${pct(deltaPct)}` }
+    ],
+    insights: [
+      {
+        title: "Hesap Formülü",
+        kind: "text",
+        items: [
+          { label: "Base Price", value: `${num(basePrice, 4)} ${currency}` },
+          { label: "Kur Mantığı", value: currency === "TL" ? "Kur 1,0000 kabul edilir" : "Kur = aylık TL maliyet / base price" },
+          { label: "Formül", value: formula }
+        ]
+      },
+      {
+        title: "Eskalasyon",
+        kind: "text",
+        items: [
+          { label: "Referans", value: `${first.label} ${money(first.cost)}` },
+          { label: "Seçili Ay", value: `${selected.label} ${money(selected.cost)}` },
+          { label: "Fark", value: `${money(delta)} (${pct(deltaPct)})` }
+        ]
+      }
+    ],
+    columns: [
+      { key: "month", label: "Ay" },
+      { key: "cost", label: "Maliyet", format: "money" },
+      { key: "rate", label: "Kur", format: "rate" },
+      { key: "delta", label: "İlk Aya Göre TL", format: "money" },
+      { key: "deltaPct", label: "İlk Aya Göre %", format: "pct" }
+    ],
+    rows: monthRows,
+    note: "Dövizli hammaddelerde kullanılan kur, rapordaki aylık TL maliyetinin base price değerine bölünmesiyle gösterilir. TL hammaddelerde kur 1 kabul edilir.",
+    emptyMessage: "Bu hammadde için aylık maliyet satırı bulunamadı."
+  };
+}
+
+function updateCostCell(wkod, monthIndex, rawValue, rerender = false) {
+  const sourceRow = DATA.costRows.find(row => String(row.WKOD ?? "") === String(wkod));
+  if (!sourceRow) return;
+  const target = state.year === "2025" ? sourceRow.months25 : sourceRow.months26;
+  if (!Array.isArray(target)) return;
+  target[monthIndex] = nullableNumber(rawValue) ?? 0;
+  persistCostRowEdit(state.year, wkod, target);
+  if (rerender) renderCosts();
+}
+
 function buildEscalationRows() {
   const selectedIndex = currentEscalationMonthIndex();
   const annualInputs = annualInputsForYear();
@@ -2039,7 +2160,14 @@ function renderCosts() {
       <td>${esc(row.category)}</td>
       <td>${money(row.basePrice)}</td>
       <td>${esc(row.currency)}</td>
-      ${row.monthValues.map(value => `<td>${money(value)}</td>`).join("")}
+      ${row.monthValues.map((value, idx) => `
+        <td class="cost-month-cell" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
+          <div class="cost-cell-control">
+            <input class="cost-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Hammadde maliyeti değiştirilebilir" />
+            <button class="cost-explain" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}" title="Hesap ve eskalasyon açıklaması">?</button>
+          </div>
+        </td>
+      `).join("")}
       <td>${money(row.yearAvg)}</td>
       <td>${money(row.yearTotal)}</td>
       <td>${pct(row.deltaPct)}</td>
@@ -2679,6 +2807,35 @@ function bind() {
   q("#costCategory")?.addEventListener("change", e => { state.costCategory = e.target.value; renderCosts(); });
   q("#annualCostSave")?.addEventListener("click", saveAnnualInputsFromForm);
   q("#annualCostClear")?.addEventListener("click", clearAnnualInputsForYear);
+  q("#costBody")?.addEventListener("click", event => {
+    const explain = event.target.closest(".cost-explain");
+    if (!explain) return;
+    const row = costRowByCode(explain.dataset.wkod);
+    if (!row) return;
+    const month = Number(explain.dataset.month);
+    openCellDetail(
+      "Hammadde Maliyet Hesabı",
+      `${state.year} • ${monthLabels[month]} • ${row.wkod} • ${row.formattedProduct || row.product}`,
+      buildCostFormulaPayload(row, month)
+    );
+  });
+  q("#costBody")?.addEventListener("input", event => {
+    const input = event.target.closest(".cost-input");
+    if (!input) return;
+    updateCostCell(input.dataset.wkod, Number(input.dataset.month), input.value, false);
+  });
+  q("#costBody")?.addEventListener("change", event => {
+    const input = event.target.closest(".cost-input");
+    if (!input) return;
+    updateCostCell(input.dataset.wkod, Number(input.dataset.month), input.value, true);
+  });
+  q("#costBody")?.addEventListener("keydown", event => {
+    const input = event.target.closest(".cost-input");
+    if (!input || event.key !== "Enter") return;
+    event.preventDefault();
+    updateCostCell(input.dataset.wkod, Number(input.dataset.month), input.value, true);
+    input.blur();
+  });
   const onSortClick = event => {
     const button = event.target.closest(".sort-header");
     if (!button) return;
