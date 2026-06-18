@@ -189,14 +189,16 @@
         <div class="costs-layout">
           <div class="card">
           <div class="card-title">Maliyetler</div>
-          <p class="section-copy">WKOD bazli maliyet listesi ve secili ay fiyatlari.</p>
+          <p class="section-copy">Hammadde maliyetleri yillik tek tabloda; WKOD, kategori, para birimi ve ay bazinda filtrelenebilir.</p>
+          <div id="costInsightGrid" class="analysis-grid"></div>
           <div class="filters-grid">
             <label class="field"><span>Arama</span><input id="costSearch" type="text" placeholder="WKOD / ürün / kategori" /></label>
+            <label class="field"><span>Kategori</span><select id="costCategory"></select></label>
             <label class="field"><span>Para Birimi</span><select id="costCurrency"></select></label>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>WKOD</th><th>Ürün</th><th>Kategori</th><th>PB</th><th>Base Price</th><th>Seçili Ay Maliyeti</th></tr></thead>
+          <div class="table-wrap cost-matrix-wrap">
+            <table class="wide-table cost-matrix-table">
+              <thead id="costHead"><tr><th>WKOD</th><th>Ürün</th><th>Kalınlık/Boy</th><th>Kategori</th><th>Base Price</th><th>PB</th><th>Aylar</th></tr></thead>
               <tbody id="costBody"></tbody>
             </table>
           </div>
@@ -228,18 +230,33 @@
           </div>
           <div id="escalationMeta" class="table-meta"></div>
         </div>
+          <div class="card">
+          <div class="card-title">ERP Ürün Maliyet Kırılımı</div>
+          <p class="section-copy">Secili ayda urun bazinda hammadde, sabit gider payi, degisken gider payi ve kar etkisi.</p>
+          <div class="table-wrap product-cost-wrap">
+            <table class="wide-table cost-breakdown-table">
+              <thead id="productCostHead"></thead>
+              <tbody id="productCostBody"></tbody>
+            </table>
+          </div>
+          <div id="productCostMeta" class="table-meta"></div>
+        </div>
         </div>
       </section>
 
       <section class="view" id="expensesView">
         <div class="card">
           <div class="card-title">Giderler</div>
+          <p class="section-copy">Aylik toplam, ortalama, sapma ve bos/olmayan gider kalemleri otomatik analiz edilir.</p>
+          <div id="expenseSummaryGrid" class="analysis-grid"></div>
+          <ul id="expenseInsightList" class="analysis-list"></ul>
           <div class="table-wrap">
-            <table>
-              <thead><tr><th>Gider Kalemi</th><th>Ocak</th><th>Şubat</th><th>Mart</th><th>Nisan</th><th>Mayıs</th><th>Haziran</th><th>Temmuz</th><th>Ağustos</th><th>Eylül</th><th>Ekim</th><th>Kasım</th><th>Aralık</th><th>Toplam</th></tr></thead>
+            <table class="expense-table">
+              <thead id="expenseHead"></thead>
               <tbody id="expenseBody"></tbody>
             </table>
           </div>
+          <div id="expenseMeta" class="table-meta"></div>
         </div>
       </section>
 
