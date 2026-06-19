@@ -9,6 +9,7 @@ const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
 let DETAIL_CACHE = null;
+let lastExpenseEdit = null;
 const state = { year: "2025", month: "all", view: "overview", masterPage: 1, masterPageSize: 50, masterSearch: "", masterCategory: "Tümü", masterMode: "summary", costSearch: "", costCurrency: "Tümü", costCategory: "Tümü", costSortKey: "yearTotal", costSortDir: "desc", escalationSortKey: "deltaPct", escalationSortDir: "desc", productCostSortKey: "totalCost", productCostSortDir: "desc", expenseSortKey: "total", expenseSortDir: "desc", importLog: [], detailPayload: null, detailFilter: "" };
 
 const monthLabels = {
@@ -2537,6 +2538,95 @@ function updateExpenseCell(rowIndex, monthIndex, rawValue, rerender = true) {
   if (rerender) renderExpenses();
 }
 
+function sourceExpenseValue(label, monthIndex, rowIndex = null) {
+  const sourceRows = BASE_DATA?.years?.[String(state.year)]?.expenseRows || BASE_DATA?.expenseRows || [];
+  const sourceRow = rowIndex !== null && sourceRows[rowIndex]?.[0] === label
+    ? sourceRows[rowIndex]
+    : sourceRows.find(row => row?.[0] === label);
+  return sourceRow ? safe(sourceRow[monthIndex + 1]) : null;
+}
+
+function isExpenseCellEdited(label, monthIndex, value, rowIndex = null) {
+  const yearEdits = loadExpenseEdits()?.[String(state.year)] || {};
+  const editedRow = yearEdits[label];
+  if (!Array.isArray(editedRow)) return false;
+  if (Math.abs(safe(editedRow[monthIndex]) - safe(value)) >= 0.001) return false;
+  const sourceValue = sourceExpenseValue(label, monthIndex, rowIndex);
+  return sourceValue === null || Math.abs(safe(value) - safe(sourceValue)) >= 0.001;
+}
+
+function setExpenseCellValue(rowIndex, monthIndex, nextValue) {
+  const yearData = currentYearData();
+  const rows = yearData.expenseRows || DATA.expenseRows || [];
+  const row = rows[rowIndex];
+  if (!row) return false;
+  const oldValue = safe(row[monthIndex + 1]);
+  row[monthIndex + 1] = safe(nextValue);
+  row[13] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1])).reduce((sum, value) => sum + value, 0);
+  recalcExpenseOverview(yearData);
+  persistExpenseRowEdit(state.year, row);
+  lastExpenseEdit = {
+    year: state.year,
+    rowIndex,
+    monthIndex,
+    label: row[0],
+    oldValue,
+    nextValue: safe(nextValue)
+  };
+  renderExpenses();
+  return true;
+}
+
+function restoreExpenseCell(rowIndex, monthIndex) {
+  const rows = currentYearData().expenseRows || DATA.expenseRows || [];
+  const row = rows[rowIndex];
+  if (!row) return;
+  const label = row[0] || "";
+  const sourceValue = sourceExpenseValue(label, monthIndex, rowIndex);
+  if (sourceValue === null) {
+    window.alert("Kaynak dosyada bu hucre icin eski deger bulunamadi.");
+    return;
+  }
+  if (!ensureEditPassword()) return;
+  if (!window.confirm(`${monthLabels[monthIndex + 1]} ${label}\nMevcut: ${money(row[monthIndex + 1])}\nKaynak deger: ${money(sourceValue)}\n\nKaynak degere donulsun mu?`)) return;
+  setExpenseCellValue(rowIndex, monthIndex, sourceValue);
+}
+
+function undoLastExpenseEdit() {
+  if (!lastExpenseEdit || lastExpenseEdit.year !== state.year) {
+    window.alert("Bu oturumda geri alinacak gider degisikligi yok.");
+    return;
+  }
+  if (!ensureEditPassword()) return;
+  setExpenseCellValue(lastExpenseEdit.rowIndex, lastExpenseEdit.monthIndex, lastExpenseEdit.oldValue);
+}
+
+function editExpenseCell(rowIndex, monthIndex) {
+  const rows = currentYearData().expenseRows || DATA.expenseRows || [];
+  const row = rows[rowIndex];
+  if (!row) return;
+  if (!ensureEditPassword()) return;
+  const label = row[0] || "";
+  const currentValue = safe(row[monthIndex + 1]);
+  const sourceValue = sourceExpenseValue(label, monthIndex, rowIndex);
+  const promptText = [
+    `${monthLabels[monthIndex + 1]} ${label}`,
+    `Mevcut deger: ${money(currentValue)}`,
+    sourceValue === null ? "Kaynak deger: bulunamadi" : `Kaynak deger: ${money(sourceValue)}`,
+    "",
+    "Yeni degeri girin. Bos birakirsaniz degismez."
+  ].join("\n");
+  const nextRaw = window.prompt(promptText, money(currentValue));
+  if (nextRaw === null || String(nextRaw).trim() === "") return;
+  const nextValue = nullableNumber(nextRaw);
+  if (nextValue === null) {
+    window.alert("Gecerli bir sayi girilmedi. Hucre degistirilmedi.");
+    return;
+  }
+  if (!window.confirm(`${label}\nEski: ${money(currentValue)}\nYeni: ${money(nextValue)}\n\nDegisiklik kaydedilsin mi?`)) return;
+  setExpenseCellValue(rowIndex, monthIndex, nextValue);
+}
+
 function renderAnnualInputCard() {
   const values = annualInputsForYear();
   if (q("#annualMdfInput")) q("#annualMdfInput").value = values.MDF !== null ? String(values.MDF) : "";
@@ -2765,14 +2855,17 @@ function renderExpenses() {
     <tr>
       <td>${esc(row.label)}</td>
       ${row.months.map((value, idx) => `
-        <td><input class="expense-input" data-row="${row.rowIndex}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Bu hücre değiştirilebilir" /></td>
+        <td class="expense-cell ${isExpenseCellEdited(row.label, idx, value, row.rowIndex) ? "expense-cell-edited" : ""}" data-row="${row.rowIndex}" data-month="${idx}" title="Cift tik veya sag tik ile sifreli duzenle">
+          <span class="expense-cell-value">${money(value)}</span>
+          ${isExpenseCellEdited(row.label, idx, value, row.rowIndex) ? `<button class="expense-undo" type="button" data-row="${row.rowIndex}" data-month="${idx}" title="Kaynak degere don">Geri</button>` : ""}
+        </td>
       `).join("")}
       <td><strong>${money(row.total)}</strong></td>
       <td>${money(row.avg)}</td>
       <td>${num(row.zeroCount)}</td>
     </tr>
   `).join("") || `<tr><td colspan="16">Gider kaydı yok.</td></tr>`;
-  q("#expenseMeta").textContent = `${metrics.length.toLocaleString("tr-TR")} gider kalemi • Tablo başlıklarından büyükten küçüğe / küçükten büyüğe sıralanır • Ay hücreleri düzenlenebilir ve tarayıcıda kalıcı kaydedilir`;
+  q("#expenseMeta").textContent = `${metrics.length.toLocaleString("tr-TR")} gider kalemi • Basliklardan siralanir • Ay hucreleri sadece cift tik/sag tik ile sifreli degistirilir • Manuel degisen hucrelerde Geri butonu gorunur`;
 }
 
 function renderControl() {
@@ -3445,27 +3538,35 @@ function bind() {
   q("#escalationHead")?.addEventListener("click", onSortClick);
   q("#productCostHead")?.addEventListener("click", onSortClick);
   q("#expenseHead")?.addEventListener("click", onSortClick);
-  q("#expenseBody")?.addEventListener("focusout", event => {
-    const input = event.target.closest(".expense-input");
-    if (!input) return;
-    updateExpenseCell(Number(input.dataset.row), Number(input.dataset.month), input.value, true);
+  q("#expenseBody")?.addEventListener("click", event => {
+    const undoButton = event.target.closest(".expense-undo");
+    if (!undoButton) return;
+    event.stopPropagation();
+    restoreExpenseCell(Number(undoButton.dataset.row), Number(undoButton.dataset.month));
   });
-  q("#expenseBody")?.addEventListener("input", event => {
-    const input = event.target.closest(".expense-input");
-    if (!input) return;
-    updateExpenseCell(Number(input.dataset.row), Number(input.dataset.month), input.value, false);
+  q("#expenseBody")?.addEventListener("dblclick", event => {
+    const cell = event.target.closest(".expense-cell");
+    if (!cell) return;
+    editExpenseCell(Number(cell.dataset.row), Number(cell.dataset.month));
   });
-  q("#expenseBody")?.addEventListener("change", event => {
-    const input = event.target.closest(".expense-input");
-    if (!input) return;
-    updateExpenseCell(Number(input.dataset.row), Number(input.dataset.month), input.value, true);
+  q("#expenseBody")?.addEventListener("contextmenu", event => {
+    const cell = event.target.closest(".expense-cell");
+    if (!cell) return;
+    event.preventDefault();
+    editExpenseCell(Number(cell.dataset.row), Number(cell.dataset.month));
   });
   q("#expenseBody")?.addEventListener("keydown", event => {
-    const input = event.target.closest(".expense-input");
-    if (!input || event.key !== "Enter") return;
+    if (event.ctrlKey && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      undoLastExpenseEdit();
+    }
+  });
+  document.addEventListener("keydown", event => {
+    if (state.view !== "expenses" || !event.ctrlKey || event.key.toLowerCase() !== "z") return;
+    const target = event.target;
+    if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     event.preventDefault();
-    updateExpenseCell(Number(input.dataset.row), Number(input.dataset.month), input.value, true);
-    input.blur();
+    undoLastExpenseEdit();
   });
 
   q("#importProcess")?.addEventListener("click", () => {

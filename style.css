@@ -201,9 +201,13 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:
 .analysis-card small{display:block;margin-top:5px;color:var(--muted);font-size:12px;line-height:1.35;min-height:16px}
 .analysis-list{display:grid;gap:7px;margin:0 0 14px;padding:0;list-style:none}
 .analysis-list li{border-left:3px solid rgba(79,140,255,.65);background:rgba(79,140,255,.08);border-radius:0 8px 8px 0;padding:8px 10px;color:#dbeafe;font-size:13px;line-height:1.4}
-.expense-input{width:100%;min-width:86px;border:1px solid transparent;background:transparent;color:var(--text);font:inherit;text-align:right;border-radius:6px;padding:5px 6px}
-.expense-input:hover{border-color:rgba(157,178,212,.28);background:rgba(255,255,255,.04)}
-.expense-input:focus{outline:2px solid rgba(79,140,255,.65);outline-offset:-2px;background:#0d1a31;border-color:rgba(79,140,255,.65)}
+.expense-cell{position:relative;min-width:92px;cursor:default;white-space:nowrap}
+.expense-cell:hover{box-shadow:inset 0 0 0 1px rgba(79,140,255,.42);background:rgba(79,140,255,.06)}
+.expense-cell-value{display:inline-block;min-width:76px}
+.expense-cell-edited{background:rgba(245,158,11,.16)}
+.expense-cell-edited::after{content:"";display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:999px;background:#f59e0b;vertical-align:middle}
+.expense-undo{margin-left:6px;border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.18);color:#fde68a;border-radius:999px;padding:2px 6px;font-size:10px;font-weight:800;line-height:1;cursor:pointer}
+.expense-undo:hover{background:rgba(245,158,11,.30);color:#fff}
 .product-cost-wrap{max-height:calc(100vh - 330px)}
 .cost-breakdown-table th,.cost-breakdown-table td,.expense-table th,.expense-table td{font-size:12px}
 .expense-table td:not(:first-child){text-align:right}
