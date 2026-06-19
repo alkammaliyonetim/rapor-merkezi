@@ -120,10 +120,11 @@ function loadImports() {
     return {
       salesRows: Array.isArray(parsed.salesRows) ? parsed.salesRows : [],
       expenseRows: Array.isArray(parsed.expenseRows) ? parsed.expenseRows : [],
-      payrollRows: Array.isArray(parsed.payrollRows) ? parsed.payrollRows : []
+      payrollRows: Array.isArray(parsed.payrollRows) ? parsed.payrollRows : [],
+      files: Array.isArray(parsed.files) ? parsed.files : []
     };
   } catch (error) {
-    return { salesRows: [], expenseRows: [], payrollRows: [] };
+    return { salesRows: [], expenseRows: [], payrollRows: [], files: [] };
   }
 }
 
@@ -2717,6 +2718,7 @@ function renderControl() {
   const summary = yearConfidenceSummary(state.year);
   const audit = buildDetailLayerAudit(state.year);
   const checks = DATA.controls[state.year] || [];
+  const sourceFiles = (loadImports().files || []).filter(file => (file.years || []).includes(String(state.year)));
   const systemChecks = [
     {
       label: "Detay ciro = Ozet toplam ciro",
@@ -2802,7 +2804,34 @@ function renderControl() {
       </div>
     </div>
   `;
-  q("#controlList").innerHTML = sourceBlock + problemBlock + renderedChecks.map(c => {
+  const fileBlock = sourceFiles.length ? `
+    <div class="control-trace">
+      <div class="control-trace-head">
+        <strong>Kaynak Excel Dosyaları</strong>
+        <span>${num(sourceFiles.length)} dosya bu yıla bağlandı</span>
+      </div>
+      <div class="import-file-grid">
+        ${sourceFiles.slice().reverse().map(file => `
+          <div class="import-file-card ${file.status}">
+            <div class="import-file-head">
+              <strong>${esc(file.fileName)}</strong>
+              <span>${file.type === "sales" ? "Satış" : "Gider"}</span>
+            </div>
+            <div class="import-file-metrics">
+              <span>Ay: ${esc(file.months || "—")}</span>
+              <span>Satır: ${num(file.rowCount)}</span>
+              <span>Fatura: ${num(file.invoiceCount || 0)}</span>
+              <span>Ciro: ${money(file.revenue)}</span>
+              <span>Gider: ${money(safe(file.expense) + safe(file.payroll))}</span>
+              <span>Durum: ${file.status === "ready" ? "Hazır" : "Takip"}</span>
+            </div>
+            ${(file.warnings || []).length ? `<div class="import-file-warnings">${file.warnings.map(esc).join(" • ")}</div>` : `<div class="import-file-ok">Kontrol için hazır</div>`}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  ` : "";
+  q("#controlList").innerHTML = sourceBlock + fileBlock + problemBlock + renderedChecks.map(c => {
     const diff = safe(c.left) - safe(c.right);
     const pass = Math.abs(diff) < 1;
     return `<div class="control-item ${pass ? "pass" : "fail"}">
@@ -3010,9 +3039,69 @@ function dedupeRows(rows, keyFn) {
   });
 }
 
+function fileMonthsText(rows, yearKey = "year", monthKey = "month") {
+  const months = uniqueMonths(rows.map(row => row[monthKey] ?? row.ay));
+  return monthSpanText(months);
+}
+
+function buildImportFileRecord(file, type, result) {
+  const salesRows = result.salesRows || result.rows || [];
+  const expenseRows = result.expenseRows || [];
+  const payrollRows = result.payrollRows || [];
+  const allRows = [...salesRows, ...expenseRows, ...payrollRows];
+  const years = [...new Set(allRows.map(row => String(row.yil ?? row.year ?? "")).filter(Boolean))].sort();
+  const invoices = new Set(salesRows.map(row => row.faturaNo).filter(Boolean));
+  const blankCustomers = salesRows.filter(row => !hasMeaningfulIdentityValue(row.unvan) && !hasMeaningfulIdentityValue(row.cariKodu)).length;
+  const blankInvoices = salesRows.filter(row => !hasMeaningfulIdentityValue(row.faturaNo)).length;
+  const revenue = salesRows.reduce((sum, row) => sum + safe(row.tutar), 0);
+  const qty = salesRows.reduce((sum, row) => sum + safe(row.miktar), 0);
+  const expense = expenseRows.reduce((sum, row) => sum + safe(row.tutar), 0);
+  const payroll = payrollRows.reduce((sum, row) => sum + safe(row.gross || row.net), 0);
+  const rowCount = salesRows.length + expenseRows.length + payrollRows.length;
+  const warnings = [];
+  if (!rowCount) warnings.push("Okunan satır yok");
+  if (type === "sales" && blankCustomers) warnings.push(`${num(blankCustomers)} müşteri boş`);
+  if (type === "sales" && blankInvoices) warnings.push(`${num(blankInvoices)} fatura boş`);
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    fileName: file.name,
+    type,
+    importedAt: new Date().toISOString(),
+    size: file.size || 0,
+    years,
+    months: fileMonthsText(allRows),
+    rowCount,
+    salesRows: salesRows.length,
+    expenseRows: expenseRows.length,
+    payrollRows: payrollRows.length,
+    invoiceCount: invoices.size,
+    qty,
+    revenue,
+    expense,
+    payroll,
+    blankCustomers,
+    blankInvoices,
+    status: warnings.length ? "warn" : "ready",
+    warnings
+  };
+}
+
+function dedupeFileRecords(records = []) {
+  const seen = new Set();
+  return records.filter(record => {
+    const key = `${record.fileName}|${record.type}|${record.rowCount}|${Math.round(safe(record.revenue))}|${Math.round(safe(record.expense))}|${Math.round(safe(record.payroll))}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function refreshDataFromImports(imports) {
   DATA = cloneData(BASE_DATA);
   applyImportsToData(DATA, imports);
+  applyExpenseEditsToData(DATA, loadExpenseEdits());
+  applyManualEditsToData(DATA, loadManualEdits());
+  applyCostEditsToData(DATA, loadCostEdits());
   DETAIL_CACHE = null;
   populateMonthSelect();
 }
@@ -3021,6 +3110,14 @@ function renderImport() {
   const body = q("#importPreviewBody");
   if (!body) return;
   const imports = loadImports();
+  const previewCard = body.closest(".card");
+  let fileCards = q("#importFileCards");
+  if (!fileCards && previewCard) {
+    fileCards = document.createElement("div");
+    fileCards.id = "importFileCards";
+    fileCards.className = "import-file-grid";
+    previewCard.insertBefore(fileCards, previewCard.querySelector(".table-wrap"));
+  }
   const grouped = new Map();
   imports.salesRows.forEach(r => {
     const key = `${r.yil}|${r.ay}|${r.kategori}`;
@@ -3043,7 +3140,28 @@ function renderImport() {
     <span class="summary-pill">${num(imports.expenseRows.length)} gider satırı</span>
     <span class="summary-pill">${num(imports.payrollRows.length)} bordro satırı</span>
     <span class="summary-pill">${num(new Set(imports.salesRows.map(r => r.faturaNo).filter(Boolean)).size)} fatura</span>
+    <span class="summary-pill">${num((imports.files || []).length)} kaynak dosya</span>
   `;
+  if (fileCards) {
+    const records = (imports.files || []).slice().reverse();
+    fileCards.innerHTML = records.map(file => `
+      <div class="import-file-card ${file.status}">
+        <div class="import-file-head">
+          <strong>${esc(file.fileName)}</strong>
+          <span>${file.type === "sales" ? "Satış" : "Gider"}</span>
+        </div>
+        <div class="import-file-metrics">
+          <span>Yıl: ${esc((file.years || []).join(", ") || "—")}</span>
+          <span>Ay: ${esc(file.months || "—")}</span>
+          <span>Satır: ${num(file.rowCount)}</span>
+          <span>Fatura: ${num(file.invoiceCount || 0)}</span>
+          <span>Ciro: ${money(file.revenue)}</span>
+          <span>Gider: ${money(safe(file.expense) + safe(file.payroll))}</span>
+        </div>
+        ${(file.warnings || []).length ? `<div class="import-file-warnings">${file.warnings.map(esc).join(" • ")}</div>` : `<div class="import-file-ok">Kontrol için hazır</div>`}
+      </div>
+    `).join("") || `<div class="import-file-empty">Henüz kaynak dosya işlenmedi.</div>`;
+  }
   q("#importLog").innerHTML = state.importLog.map(item => `<div>${item}</div>`).join("") || "Hazır.";
 }
 
@@ -3059,9 +3177,11 @@ async function processImports() {
   let addedSales = 0;
   let addedExpenses = 0;
   let addedPayroll = 0;
+  imports.files = Array.isArray(imports.files) ? imports.files : [];
   for (const file of salesFiles) {
     const rows = await parseSalesFile(file);
     imports.salesRows.push(...rows);
+    imports.files.push(buildImportFileRecord(file, "sales", { salesRows: rows }));
     addedSales += rows.length;
     state.importLog.unshift(`${file.name}: ${num(rows.length)} satış satırı okundu.`);
   }
@@ -3069,6 +3189,7 @@ async function processImports() {
     const parsed = await parseExpenseFile(file);
     imports.expenseRows.push(...parsed.expenseRows);
     imports.payrollRows.push(...parsed.payrollRows);
+    imports.files.push(buildImportFileRecord(file, "expense", parsed));
     addedExpenses += parsed.expenseRows.length;
     addedPayroll += parsed.payrollRows.length;
     state.importLog.unshift(`${file.name}: ${num(parsed.expenseRows.length)} gider, ${num(parsed.payrollRows.length)} bordro satırı okundu.`);
@@ -3076,6 +3197,7 @@ async function processImports() {
   imports.salesRows = dedupeRows(imports.salesRows, r => `${r.tarih}|${r.faturaNo}|${r.cariKodu}|${r.kod}|${r.urun}|${r.miktar}|${r.tutar}`);
   imports.expenseRows = dedupeRows(imports.expenseRows, r => `${r.year}|${r.month}|${r.kategori}|${r.tutar}|${r.sourceFile}`);
   imports.payrollRows = dedupeRows(imports.payrollRows, r => `${r.year}|${r.month}|${r.employee}|${r.gross}|${r.net}|${r.sourceFile}`);
+  imports.files = dedupeFileRecords(imports.files);
   saveImports(imports);
   refreshDataFromImports(imports);
   const latestYear = [...new Set(imports.salesRows.map(r => r.yil).concat(imports.expenseRows.map(r => String(r.year))))].sort().pop();
