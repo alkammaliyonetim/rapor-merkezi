@@ -1592,9 +1592,42 @@ function renderOverview() {
   const catData = (month, name) => monthData(month).categories.find(c => c.name === name) || {};
   const totalExpenseByMonth = month => expenseMonthTotal(yearData, month);
   const rows = [];
+  const rankMonths = state.month === "all" ? months : [Number(state.month)].filter(Boolean);
+  const metricTotal = (name, key) => rankMonths.reduce((sum, month) => sum + safe(catData(month, name)[key]), 0);
+  const expenseTotal = exp => rankMonths.reduce((sum, month) => sum + safe(exp[month]), 0);
+  const makeRankMap = entries => {
+    const positive = entries.filter(entry => safe(entry.value) > 0);
+    const total = positive.reduce((sum, entry) => sum + safe(entry.value), 0);
+    return new Map(positive
+      .sort((a, b) => safe(b.value) - safe(a.value) || String(a.label).localeCompare(String(b.label), "tr"))
+      .map((entry, idx) => [entry.label, {
+        rank: idx + 1,
+        share: total ? Math.round((safe(entry.value) / total) * 100) : 0
+      }]));
+  };
+  const renderRankedLabel = (label, rankMap) => {
+    const meta = rankMap.get(label);
+    if (!meta) return esc(label);
+    return `<span class="ranked-label"><span class="rank-name">${esc(label)}</span><span class="rank-no">${num(meta.rank)}</span><span class="rank-share">%${num(meta.share)}</span></span>`;
+  };
+  const salesRank = makeRankMap(cats.map(label => ({ label, value: metricTotal(label, "ciro") })));
+  const qtyRank = makeRankMap(cats.map(label => ({ label, value: metricTotal(label, "adet") })));
+  const costRank = makeRankMap(cats.map(label => ({ label, value: metricTotal(label, "maliyet") })));
+  const expenseRank = makeRankMap((yearData.expenseRows || DATA.expenseRows || []).map(exp => ({ label: exp[0], value: expenseTotal(exp) })));
   const row = (label, section, cells, cls = "", total = null, digits = 0, totalFormat = "money") => {
     const totalText = total === null ? "" : (totalFormat === "number" ? num(total, digits) : money(total));
-    rows.push(`<tr class="${cls}"><th>${label}</th><td class="trend">${section}</td>${cells}<td class="year-total">${totalText}</td></tr>`);
+    const labelText = String(label);
+    let labelHtml = labelText;
+    if (cls.includes("expense-line")) {
+      labelHtml = renderRankedLabel(labelText, expenseRank);
+    } else if (cls.includes("cat-") && cls.includes("cost")) {
+      labelHtml = renderRankedLabel(labelText, costRank);
+    } else if (cls.includes("cat-") && totalFormat === "number") {
+      labelHtml = renderRankedLabel(labelText, qtyRank);
+    } else if (cls.includes("cat-")) {
+      labelHtml = renderRankedLabel(labelText, salesRank);
+    }
+    rows.push(`<tr class="${cls}"><th>${labelHtml}</th><td class="trend">${section}</td>${cells}<td class="year-total">${totalText}</td></tr>`);
   };
 
   rows.push(`<tr class="section-row sales-section"><th>Satışlar</th><td></td>${months.map(() => "<td></td>").join("")}<td></td></tr>`);
