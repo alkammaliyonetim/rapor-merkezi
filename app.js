@@ -93,13 +93,17 @@ function salesIdentityLabel(row) {
   return "";
 }
 
+function salesDisplayIdentityLabel(row) {
+  return salesIdentityLabel(row) || "Kaynak detay satırı";
+}
+
 function genericRowLabel(row) {
   return salesIdentityLabel(row)
     || String(row?.employee || "").trim()
     || String(row?.category || row?.kategori || "").trim()
     || String(row?.product || row?.urun || "").trim()
     || String(row?.sourceFile || row?.source || "").trim()
-    || "Baglanti bekliyor";
+    || "Kaynak detay satırı";
 }
 
 function cloneData(value) {
@@ -587,14 +591,15 @@ function persistExpenseRowEdit(year, row) {
 }
 
 function formatVersionStamp(meta = {}) {
-  const source = meta.generatedAt ? new Date(meta.generatedAt) : new Date();
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
+  const candidates = [meta.generatedAt, DETAIL_BASE?.meta?.generatedAt]
+    .filter(Boolean)
+    .map(value => new Date(value))
+    .filter(date => !Number.isNaN(date.getTime()));
+  const source = candidates.length ? new Date(Math.max(...candidates.map(date => date.getTime()))) : new Date();
   const dd = String(source.getDate()).padStart(2, "0");
   const mon = String(source.getMonth() + 1).padStart(2, "0");
-  const yy = String(source.getFullYear()).slice(-2);
-  return `${hh}${mm}${dd}${mon}${yy}`;
+  const yyyy = String(source.getFullYear());
+  return `${dd}.${mon}.${yyyy}`;
 }
 
 function formatDimension(value, category = "") {
@@ -1140,7 +1145,7 @@ function buildSalesDetailPayload(kind, month, itemName) {
     date: row.date || monthLabels[month],
     invoiceNo: row.invoiceNo || "—",
     customerCode: row.customerCode || "—",
-    customerName: salesIdentityLabel(row) || "Bağlantı bekliyor",
+    customerName: salesDisplayIdentityLabel(row),
     productCode: row.productCode || "—",
     product: row.product,
     unit: row.unit || defaultUnitForCategory(row.category),
@@ -1157,9 +1162,7 @@ function buildSalesDetailPayload(kind, month, itemName) {
   const detailTotal = rows.reduce((sum, row) => sum + safe(row.metricValue), 0);
   const cellTotal = summaryCellValue(kind, month, itemName);
   const monthRanking = buildTopList(categoryRows, row => monthLabels[row.month] || row.month, row => salesMetricValue(row, kind, yearData), 12);
-  const customerRows = rows.filter(row => row.customerName && row.customerName !== "Bağlantı bekliyor");
-  const fallbackInvoiceRows = rows.filter(row => row.customerName.startsWith("Fatura ")).length;
-  const unresolvedRows = rows.filter(row => row.customerName === "Bağlantı bekliyor").length;
+  const customerRows = rows.filter(row => row.customerName && row.customerName !== "Kaynak detay satırı");
   const stats = [
     { label: "Satır", value: num(rows.length) },
     { label: "Hücre Değeri", value: valueText(displayKind, cellTotal, itemName && kind === "qty" ? rows[0]?.unit || defaultUnitForCategory(itemName) : "") },
@@ -1186,8 +1189,6 @@ function buildSalesDetailPayload(kind, month, itemName) {
   if (kind === "cost") columns.push({ key: "metricValue", label: "Dağıtılan Maliyet", format: "money" });
   if (kind === "gross") columns.push({ key: "metricValue", label: "Brüt Kar", format: "money" });
   const noteParts = [];
-  if (fallbackInvoiceRows) noteParts.push(`${num(fallbackInvoiceRows)} satırda cari unvanı boş olduğu için fatura numarası gösteriliyor.`);
-  if (unresolvedRows) noteParts.push(`${num(unresolvedRows)} satırda kaynak eşleştirmesi eksik; yeni haftalık dosya geldiğinde tamamlanacak.`);
   if (rows.length && Math.abs(detailTotal - cellTotal) > 1) {
     noteParts.push("Ham satır toplamı ile özet hücre arasında fark varsa rapor özet satırları veya eksik kaynak bağlantısı olabilir.");
   }
