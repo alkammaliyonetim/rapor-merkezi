@@ -99,6 +99,25 @@ function salesDisplayIdentityLabel(row) {
   return salesIdentityLabel(row) || "Kaynak detay satırı";
 }
 
+function isRentIncomeCustomer(value) {
+  const normalized = normalizeText(fixMojibakeText(value || ""));
+  return normalized.includes("NELL MOBILYA") && normalized.includes("KIRA");
+}
+
+function isSalesAnalysisCustomer(row) {
+  return !isRentIncomeCustomer(row?.name ?? row?.customerName ?? row?.unvan);
+}
+
+function isRentIncomeRow(row) {
+  return isRentIncomeCustomer(row?.customerName ?? row?.unvan ?? row?.name);
+}
+
+function visibleSalesCustomers(customers = []) {
+  return customers
+    .filter(isSalesAnalysisCustomer)
+    .map((customer, index) => ({ ...customer, rank: index + 1 }));
+}
+
 function genericRowLabel(row) {
   return salesIdentityLabel(row)
     || String(row?.employee || "").trim()
@@ -502,7 +521,10 @@ function applyImportsToData(data, imports) {
       current.kar = current.ciro - current.maliyet;
       current.marj = current.ciro ? current.kar / current.ciro : 0;
       m.categories.set(name, current);
-      customers.set(r.unvan || "Tanımsız", safe(customers.get(r.unvan || "Tanımsız")) + safe(r.tutar));
+      const customerName = r.unvan || "Tanımsız";
+      if (!isRentIncomeCustomer(customerName)) {
+        customers.set(customerName, safe(customers.get(customerName)) + safe(r.tutar));
+      }
     });
 
     y.yonPlus = [...months.values()].map(m => {
@@ -1285,7 +1307,7 @@ function salesMetricValue(row, kind, yearData) {
 function buildSalesDetailPayload(kind, month, itemName) {
   const yearData = currentYearData();
   const store = detailStore();
-  const yearRows = store.salesRows.filter(row => String(row.year) === state.year);
+  const yearRows = store.salesRows.filter(row => String(row.year) === state.year && !isRentIncomeRow(row));
   const categoryRows = itemName ? yearRows.filter(row => sameLabel(row.category, itemName)) : yearRows;
   const monthRows = categoryRows.filter(row => Number(row.month) === month);
   const displayKind = kind === "qty" ? "qty" : "money";
@@ -1310,7 +1332,14 @@ function buildSalesDetailPayload(kind, month, itemName) {
   const detailTotal = rows.reduce((sum, row) => sum + safe(row.metricValue), 0);
   const cellTotal = summaryCellValue(kind, month, itemName);
   const monthRanking = buildTopList(categoryRows, row => monthLabels[row.month] || row.month, row => salesMetricValue(row, kind, yearData), 12);
-  const customerRows = rows.filter(row => row.customerName && row.customerName !== "Kaynak detay satırı");
+  const customerRows = rows.filter(row =>
+    row.customerName &&
+    row.customerName !== "Kaynak detay satırı" &&
+    !isRentIncomeCustomer(row.customerName)
+  );
+  const customerInsightRows = customerRows.length
+    ? customerRows
+    : rows.filter(row => !isRentIncomeCustomer(row.customerName));
   const stats = [
     { label: "Satır", value: num(rows.length) },
     { label: "Hücre Değeri", value: valueText(displayKind, cellTotal, itemName && kind === "qty" ? rows[0]?.unit || defaultUnitForCategory(itemName) : "") },
@@ -1319,7 +1348,7 @@ function buildSalesDetailPayload(kind, month, itemName) {
     { label: "Ürün", value: num(new Set(rows.map(row => row.product).filter(Boolean)).size) }
   ];
   const insights = [
-    { title: "En Çok Kime Satıldı", kind: displayKind, items: buildTopList(customerRows.length ? customerRows : rows, row => row.customerName, row => row.metricValue) },
+    { title: "En Çok Kime Satıldı", kind: displayKind, items: buildTopList(customerInsightRows, row => row.customerName, row => row.metricValue) },
     { title: "En Çok Hangi Ürün", kind: displayKind, items: buildTopList(rows, row => row.product, row => row.metricValue) },
     { title: "En Güçlü Aylar", kind: displayKind, items: monthRanking }
   ];
@@ -1899,7 +1928,7 @@ function renderYONRapor() {
       <td>${pct(c.share)}</td>
     </tr>`).join("");
 
-  q("#yonRaporCustomerBody").innerHTML = r.topCustomers.map(c => `
+  q("#yonRaporCustomerBody").innerHTML = visibleSalesCustomers(r.topCustomers).map(c => `
     <tr><td>${c.rank}</td><td>${c.name}</td><td>${money(c.revenue)}</td><td>${pct(c.share)}</td></tr>
   `).join("");
 }
@@ -1917,7 +1946,7 @@ function renderCategoryProfit() {
 }
 
 function renderCustomers() {
-  q("#customerBody").innerHTML = currentYearData().yonRapor.topCustomers.map(c => `
+  q("#customerBody").innerHTML = visibleSalesCustomers(currentYearData().yonRapor.topCustomers).map(c => `
     <tr><td>${c.rank}</td><td>${c.name}</td><td>${money(c.revenue)}</td><td>${pct(c.share)}</td></tr>
   `).join("");
 }

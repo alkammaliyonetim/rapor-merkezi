@@ -56,18 +56,17 @@ window.MONTHLY_DATA = {
       customers: [
         {rank:1,name:"TAKDİR HOME",revenue:4457621,share:1.57},
         {rank:2,name:"IŞIK KAPLAMA",revenue:4252226,share:1.50},
-        {rank:3,name:"NELL MOBİLYA KİRA",revenue:3948509,share:1.39},
-        {rank:4,name:"MUHTELİF MÜŞTERİ",revenue:3855829,share:1.36},
-        {rank:5,name:"ATABAY (LENOVA)",revenue:3196990,share:1.13},
-        {rank:6,name:"GİZİR AHŞAP",revenue:2550956,share:0.90},
-        {rank:7,name:"YOL MOBİLYA (NÜKTE)",revenue:2295420,share:0.81},
-        {rank:8,name:"SENFONİ",revenue:2208474,share:0.78},
-        {rank:9,name:"BEFA KAPLAMA - ERKAN",revenue:2204107,share:0.78},
-        {rank:10,name:"SİMETRİ OFİS MOB.SİS",revenue:2163162,share:0.76},
-        {rank:11,name:"ÖZNİL MOBİLYA",revenue:2066453,share:0.73},
-        {rank:12,name:"BERAAT AKSESUAR",revenue:2020721,share:0.71},
-        {rank:13,name:"MOGA",revenue:2000020,share:0.71},
-        {rank:14,name:"LUCA AHŞAP",revenue:1991604,share:0.70}
+        {rank:3,name:"MUHTELİF MÜŞTERİ",revenue:3855829,share:1.36},
+        {rank:4,name:"ATABAY (LENOVA)",revenue:3196990,share:1.13},
+        {rank:5,name:"GİZİR AHŞAP",revenue:2550956,share:0.90},
+        {rank:6,name:"YOL MOBİLYA (NÜKTE)",revenue:2295420,share:0.81},
+        {rank:7,name:"SENFONİ",revenue:2208474,share:0.78},
+        {rank:8,name:"BEFA KAPLAMA - ERKAN",revenue:2204107,share:0.78},
+        {rank:9,name:"SİMETRİ OFİS MOB.SİS",revenue:2163162,share:0.76},
+        {rank:10,name:"ÖZNİL MOBİLYA",revenue:2066453,share:0.73},
+        {rank:11,name:"BERAAT AKSESUAR",revenue:2020721,share:0.71},
+        {rank:12,name:"MOGA",revenue:2000020,share:0.71},
+        {rank:13,name:"LUCA AHŞAP",revenue:1991604,share:0.70}
       ],
       monthlyBlocks: [
         {title:"Ocak 25",rows:[
@@ -156,8 +155,7 @@ window.MONTHLY_DATA = {
         { rank: 11, name: "BERAAT AKSESUAR", revenue: 1567595.00, share: 2.01 },
         { rank: 12, name: "ATABAY (LENOVA)", revenue: 1487089.13, share: 1.91 },
         { rank: 13, name: "ÖZNİL MOBİLYA", revenue: 1459801.71, share: 1.87 },
-        { rank: 14, name: "NELL MOBİLYA KİRA", revenue: 1458488.19, share: 1.87 },
-        { rank: 15, name: "ORMA-ERMENİSTAN (ECO", revenue: 1456865.51, share: 1.87 }
+        { rank: 14, name: "ORMA-ERMENİSTAN (ECO", revenue: 1456865.51, share: 1.87 }
       ],
       monthlyBlocks: [
         {title:"Ocak 26",rows:[{name:"TOPLAM",qty:72853.534,revenue:21789495.52,cost:0,profit:0,margin:0,total:true}]},
