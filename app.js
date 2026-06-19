@@ -1605,24 +1605,44 @@ function showIncomeHoverTip(cell, event) {
   const text = cell?.dataset?.tooltip || "";
   if (!text) return;
   const tip = incomeHoverTip();
-  tip.textContent = text;
+  const lines = text.split("\n").filter(Boolean);
+  tip.innerHTML = `
+    <div class="tip-title">${esc(lines[0] || "")}</div>
+    <div class="tip-metrics">
+      ${lines.slice(1).map((line, index) => {
+        const [label, ...rest] = line.split(":");
+        return `
+          <div class="tip-row ${index === 0 ? "current" : ""}">
+            <span class="tip-label">${esc(label || "")}</span>
+            <span class="tip-value">${esc(rest.join(":").trim())}</span>
+          </div>`;
+      }).join("")}
+    </div>`;
+  tip.dataset.anchorCell = "1";
+  state.hoverCell = cell;
   tip.classList.add("open");
-  moveIncomeHoverTip(event);
+  moveIncomeHoverTip(event, cell);
 }
 
-function moveIncomeHoverTip(event) {
+function moveIncomeHoverTip(event, anchorCell = state.hoverCell) {
   const tip = q("#incomeHoverTip");
   if (!tip?.classList.contains("open")) return;
-  const gap = 14;
-  const width = tip.offsetWidth || 260;
-  const height = tip.offsetHeight || 120;
-  const x = Math.min(window.innerWidth - width - 12, Math.max(12, event.clientX + gap));
-  const y = Math.min(window.innerHeight - height - 12, Math.max(12, event.clientY + gap));
+  const width = tip.offsetWidth || 320;
+  const height = tip.offsetHeight || 150;
+  const margin = 12;
+  const gap = 10;
+  const rect = anchorCell?.getBoundingClientRect?.();
+  let x = rect ? rect.left + (rect.width / 2) - (width / 2) : event.clientX + gap;
+  let y = rect ? rect.top - height - gap : event.clientY + gap;
+  if (rect && y < margin) y = rect.bottom + gap;
+  x = Math.min(window.innerWidth - width - margin, Math.max(margin, x));
+  y = Math.min(window.innerHeight - height - margin, Math.max(margin, y));
   tip.style.left = `${x}px`;
   tip.style.top = `${y}px`;
 }
 
 function hideIncomeHoverTip() {
+  state.hoverCell = null;
   q("#incomeHoverTip")?.classList.remove("open");
 }
 
