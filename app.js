@@ -3,6 +3,8 @@ const IMPORT_STORAGE_KEY = "raporMerkeziImportsV1";
 const ANNUAL_INPUT_STORAGE_KEY = "raporMerkeziAnnualInputsV1";
 const EXPENSE_EDIT_STORAGE_KEY = "raporMerkeziExpenseEditsV1";
 const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
+const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
+const EDIT_PASSWORD = "1906";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
@@ -159,6 +161,21 @@ function saveCostEdits(edits) {
   localStorage.setItem(COST_EDIT_STORAGE_KEY, JSON.stringify(edits));
 }
 
+function loadManualEdits() {
+  try {
+    const raw = localStorage.getItem(MANUAL_EDIT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveManualEdits(edits) {
+  localStorage.setItem(MANUAL_EDIT_STORAGE_KEY, JSON.stringify(edits));
+}
+
 function loadAnnualInputs() {
   try {
     const raw = localStorage.getItem(ANNUAL_INPUT_STORAGE_KEY);
@@ -197,6 +214,7 @@ function hydrateData(base) {
   const data = cloneData(base);
   applyImportsToData(data, loadImports());
   applyExpenseEditsToData(data, loadExpenseEdits());
+  applyManualEditsToData(data, loadManualEdits());
   applyCostEditsToData(data, loadCostEdits());
   return data;
 }
@@ -537,6 +555,67 @@ function recalcExpenseOverview(yearData) {
   yearData.overview.netProfit = safe(yearData.overview.profitBeforeTax) - safe(yearData.overview.corporateTax);
 }
 
+function recalcIncomeOverview(yearData) {
+  if (!yearData) return;
+  (yearData.yonPlus || []).forEach(month => {
+    const total = { adet: 0, ciro: 0, maliyet: 0, kar: 0, marj: 0 };
+    (month.categories || []).forEach(category => {
+      category.kar = safe(category.ciro) - safe(category.maliyet);
+      category.marj = safe(category.ciro) ? category.kar / safe(category.ciro) : 0;
+      total.adet += safe(category.adet);
+      total.ciro += safe(category.ciro);
+      total.maliyet += safe(category.maliyet);
+      total.kar += safe(category.kar);
+    });
+    total.marj = total.ciro ? total.kar / total.ciro : 0;
+    month.total = total;
+  });
+
+  const totals = (yearData.yonPlus || []).reduce((acc, month) => {
+    acc.totalRevenue += safe(month.total?.ciro);
+    acc.totalCost += safe(month.total?.maliyet);
+    acc.grossProfit += safe(month.total?.kar);
+    return acc;
+  }, { totalRevenue: 0, totalCost: 0, grossProfit: 0 });
+  yearData.categories = (yearData.categories || []).map(category => {
+    const rows = (yearData.yonPlus || []).map(month => (month.categories || []).find(item => item.name === category.name)).filter(Boolean);
+    const ciro = rows.reduce((sum, row) => sum + safe(row.ciro), 0);
+    const maliyet = rows.reduce((sum, row) => sum + safe(row.maliyet), 0);
+    const kar = ciro - maliyet;
+    return { ...category, ciro, maliyet, kar, marj: ciro ? kar / ciro : 0 };
+  });
+  if (!yearData.overview) return;
+  yearData.overview.totalRevenue = totals.totalRevenue;
+  yearData.overview.totalCost = totals.totalCost;
+  yearData.overview.grossProfit = totals.grossProfit;
+  yearData.overview.grossMargin = totals.totalRevenue ? totals.grossProfit / totals.totalRevenue : 0;
+  yearData.overview.profitBeforeTax = totals.grossProfit - safe(yearData.overview.totalExpense);
+  yearData.overview.netProfit = safe(yearData.overview.profitBeforeTax) - safe(yearData.overview.corporateTax);
+  yearData.overview.netMargin = totals.totalRevenue ? safe(yearData.overview.netProfit) / totals.totalRevenue : 0;
+}
+
+function applyManualEditsToData(data, edits) {
+  if (!data?.years || !edits || typeof edits !== "object") return;
+  Object.entries(edits).forEach(([year, yearEdits]) => {
+    const yearData = data.years[year];
+    if (!yearData?.yonPlus || !yearEdits || typeof yearEdits !== "object") return;
+    ["sales", "qty"].forEach(kind => {
+      Object.entries(yearEdits[kind] || {}).forEach(([categoryName, monthValues]) => {
+        if (!Array.isArray(monthValues)) return;
+        for (let idx = 0; idx < 12; idx += 1) {
+          const month = (yearData.yonPlus || []).find(entry => entry.month === idx + 1);
+          const category = (month?.categories || []).find(entry => entry.name === categoryName);
+          if (!category) continue;
+          if (kind === "sales") category.ciro = safe(monthValues[idx]);
+          if (kind === "qty") category.adet = safe(monthValues[idx]);
+        }
+      });
+    });
+    recalcIncomeOverview(yearData);
+    recalcExpenseOverview(yearData);
+  });
+}
+
 function applyExpenseEditsToData(data, edits) {
   if (!data?.years || !edits || typeof edits !== "object") return;
   Object.entries(edits).forEach(([year, yearEdits]) => {
@@ -588,6 +667,64 @@ function persistExpenseRowEdit(year, row) {
   edits[yearKey] = edits[yearKey] || {};
   edits[yearKey][label] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1]));
   saveExpenseEdits(edits);
+}
+
+function persistManualIncomeEdit(year, kind, itemName, month, value) {
+  if (!["sales", "qty"].includes(kind) || !itemName || !month) return;
+  const edits = loadManualEdits();
+  const yearKey = String(year);
+  edits[yearKey] = edits[yearKey] || {};
+  edits[yearKey][kind] = edits[yearKey][kind] || {};
+  const currentSeries = incomeMetricSeries(DATA.years[yearKey], kind, itemName);
+  currentSeries[month - 1] = safe(value);
+  edits[yearKey][kind][itemName] = currentSeries;
+  saveManualEdits(edits);
+}
+
+function ensureEditPassword() {
+  const password = window.prompt("Değişiklik şifresi");
+  if (password === null) return false;
+  if (password === EDIT_PASSWORD) return true;
+  window.alert("Şifre hatalı. Hücre değiştirilmedi.");
+  return false;
+}
+
+function manualCellValue(kind, month, itemName) {
+  if (kind === "expense") {
+    const row = (currentYearData().expenseRows || []).find(entry => entry[0] === itemName);
+    return safe(row?.[month]);
+  }
+  return incomeMetricValue(currentYearData(), kind, month, itemName);
+}
+
+function saveManualIncomeCell(cell) {
+  if (!cell || cell.dataset.editable !== "1") return false;
+  const kind = cell.dataset.kind || "";
+  const month = Number(cell.dataset.month);
+  const itemName = cell.dataset.item || "";
+  if (!["sales", "qty", "expense"].includes(kind) || !month || !itemName) return false;
+  if (!ensureEditPassword()) return true;
+  const currentValue = manualCellValue(kind, month, itemName);
+  const nextRaw = window.prompt(`${monthLabels[month]} ${itemName} yeni değer`, num(currentValue, kind === "qty" ? 3 : 0));
+  if (nextRaw === null) return true;
+  const nextValue = nullableNumber(nextRaw);
+  if (nextValue === null) {
+    window.alert("Geçerli bir sayı girilmedi.");
+    return true;
+  }
+  if (kind === "expense") {
+    const row = (currentYearData().expenseRows || []).find(entry => entry[0] === itemName);
+    if (!row) return true;
+    row[month] = nextValue;
+    row[13] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1])).reduce((sum, value) => sum + value, 0);
+    persistExpenseRowEdit(state.year, row);
+    recalcExpenseOverview(currentYearData());
+  } else {
+    persistManualIncomeEdit(state.year, kind, itemName, month, nextValue);
+    DATA = hydrateData(BASE_DATA);
+  }
+  render();
+  return true;
 }
 
 function formatVersionStamp(meta = {}) {
@@ -1377,14 +1514,17 @@ function renderCellDetails() {
 function incomeCell(value, kind, month, itemName = "", className = "") {
   const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
   const tooltip = buildIncomeHoverTooltip(kind, month, itemName, value, "money");
-  const attrs = isFilled ? ` class="income-value ${className}" data-kind="${kind}" data-month="${month}" data-item="${esc(itemName)}" data-tooltip="${esc(tooltip)}"` : ` class="${className}" data-tooltip="${esc(tooltip)}"`;
+  const editable = ["sales", "expense"].includes(kind) && Boolean(itemName);
+  const lockClass = editable ? "manual-editable" : "manual-locked";
+  const editAttrs = editable ? ` data-editable="1" title="Ctrl + tık veya sağ tık ile şifreli değiştir"` : ` data-editable="0" title="Hesaplanan / kilitli hücre"`;
+  const attrs = isFilled ? ` class="income-value ${lockClass} ${className}" data-kind="${kind}" data-month="${month}" data-item="${esc(itemName)}" data-tooltip="${esc(tooltip)}"${editAttrs}` : ` class="${lockClass} ${className}" data-tooltip="${esc(tooltip)}"${editAttrs}`;
   return `<td${attrs}>${isFilled ? money(value) : "0"}</td>`;
 }
 
 function incomeQtyCell(value, month, itemName, unit) {
   const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
   const tooltip = buildIncomeHoverTooltip("qty", month, itemName, value, "qty", unit);
-  return `<td class="${isFilled ? "income-value" : ""}" data-tooltip="${esc(tooltip)}" ${isFilled ? `data-kind="qty" data-month="${month}" data-item="${esc(itemName)}"` : ""}>${isFilled ? num(value, unit === "M2" || unit === "M" ? 3 : 0) : "0"}</td>`;
+  return `<td class="${isFilled ? "income-value " : ""}manual-editable" data-tooltip="${esc(tooltip)}" data-editable="1" title="Ctrl + tık veya sağ tık ile şifreli değiştir" ${isFilled ? `data-kind="qty" data-month="${month}" data-item="${esc(itemName)}"` : `data-kind="qty" data-month="${month}" data-item="${esc(itemName)}"`}>${isFilled ? num(value, unit === "M2" || unit === "M" ? 3 : 0) : "0"}</td>`;
 }
 
 function incomeMetricValue(yearData, kind, month, itemName = "") {
@@ -2136,6 +2276,9 @@ function buildCostFormulaPayload(row, monthNo) {
 }
 
 function updateCostCell(wkod, monthIndex, rawValue, rerender = false) {
+  window.alert("Maliyet ve eskalasyon hücreleri kilitlidir. Bu alanlar manuel değiştirilemez.");
+  if (rerender) renderCosts();
+  return;
   const sourceRow = DATA.costRows.find(row => String(row.WKOD ?? "") === String(wkod));
   if (!sourceRow) return;
   const target = state.year === "2025" ? sourceRow.months25 : sourceRow.months26;
@@ -2408,7 +2551,7 @@ function renderCosts() {
       ${row.monthValues.map((value, idx) => `
         <td class="cost-month-cell" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
           <div class="cost-cell-control">
-            <input class="cost-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Hammadde maliyeti değiştirilebilir" />
+            <input class="cost-input cost-locked-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Hammadde maliyeti kilitli / hesap alanı" readonly />
             <button class="cost-explain" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}" title="Hesap ve eskalasyon açıklaması">?</button>
           </div>
         </td>
@@ -3017,12 +3160,23 @@ function bind() {
   q("#incomeTable")?.addEventListener("click", e => {
     const cell = e.target.closest(".income-value");
     if (!cell) return;
+    if (e.ctrlKey && saveManualIncomeCell(cell)) return;
     const month = Number(cell.dataset.month);
     const item = cell.dataset.item || "";
     const kind = cell.dataset.kind || "sales";
     const labels = { sales: "Satış", qty: "Miktar", cost: "Maliyet", gross: "Brüt Kar", expense: "Gider", net: "Net Kar" };
     const payload = buildDetailPayload(kind, month, item);
     openCellDetail(`${labels[kind] || "Hücre"} Detayı`, `${state.year} • ${monthLabels[month]}${item ? " • " + item : ""}`, payload);
+  });
+  q("#incomeTable")?.addEventListener("contextmenu", e => {
+    const cell = e.target.closest("td[data-editable]");
+    if (!cell) return;
+    e.preventDefault();
+    if (cell.dataset.editable !== "1") {
+      window.alert("Bu hücre hesaplanan / kilitli hücredir. Maliyet, eskalasyon ve sonuç rakamları manuel değiştirilemez.");
+      return;
+    }
+    saveManualIncomeCell(cell);
   });
   q("#incomeTable")?.addEventListener("mouseover", e => {
     const cell = e.target.closest("td[data-tooltip]");
