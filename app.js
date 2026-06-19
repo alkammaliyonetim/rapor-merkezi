@@ -1743,13 +1743,15 @@ function renderOverview() {
       .sort((a, b) => safe(b.value) - safe(a.value) || String(a.label).localeCompare(String(b.label), "tr"))
       .map((entry, idx) => [entry.label, {
         rank: idx + 1,
-        share: total ? Math.round((safe(entry.value) / total) * 100) : 0
+        share: total ? (safe(entry.value) / total) * 100 : 0
       }]));
   };
   const renderRankedLabel = (label, rankMap) => {
     const meta = rankMap.get(label);
     if (!meta) return esc(label);
-    return `<span class="ranked-label"><span class="rank-name">${esc(label)}</span><span class="rank-no">${num(meta.rank)}</span><span class="rank-share">%${num(meta.share)}</span></span>`;
+    const shareText = meta.share > 0 && meta.share < 1 ? "%<1" : `%${num(Math.round(meta.share))}`;
+    const title = meta.share > 0 && meta.share < 1 ? "Pay var ama yüzde 1'in altında" : `Pay ${shareText}`;
+    return `<span class="ranked-label" title="${esc(title)}"><span class="rank-name">${esc(label)}</span><span class="rank-no">${num(meta.rank)}</span><span class="rank-share">${shareText}</span></span>`;
   };
   const salesRank = makeRankMap(cats.map(label => ({ label, value: metricTotal(label, "ciro") })));
   const qtyRank = makeRankMap(cats.map(label => ({ label, value: metricTotal(label, "adet") })));
