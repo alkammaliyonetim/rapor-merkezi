@@ -731,13 +731,23 @@ function saveManualIncomeCell(cell) {
 function formatVersionStamp(meta = {}) {
   const candidates = [meta.generatedAt, DETAIL_BASE?.meta?.generatedAt]
     .filter(Boolean)
-    .map(value => new Date(value))
+    .map(value => {
+      const text = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        const [year, month, day] = text.split("-").map(Number);
+        const now = new Date();
+        return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), 0);
+      }
+      return new Date(text);
+    })
     .filter(date => !Number.isNaN(date.getTime()));
   const source = candidates.length ? new Date(Math.max(...candidates.map(date => date.getTime()))) : new Date();
+  const hh = String(source.getHours()).padStart(2, "0");
+  const min = String(source.getMinutes()).padStart(2, "0");
+  const yyyy = String(source.getFullYear());
   const dd = String(source.getDate()).padStart(2, "0");
   const mon = String(source.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(source.getFullYear());
-  return `${dd}.${mon}.${yyyy}`;
+  return `${hh}${min}${yyyy}${dd}${mon}`;
 }
 
 function formatDimension(value, category = "") {
