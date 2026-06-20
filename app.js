@@ -1983,9 +1983,12 @@ function renderOverviewSummaryBar() {
   overview.innerHTML = `
     <div class="overview-bar ${summary.status}">
       <div class="overview-bar-row">
-        <div class="overview-bar-title">
-          <strong>${state.year}</strong>
-          <span>${esc(headline)}</span>
+        <div class="overview-brand-lockup">
+          <img class="overview-logo" src="assets/woodlent-logo.png" alt="Woodlent" />
+          <div class="overview-bar-title">
+            <strong>${state.year}</strong>
+            <span>${esc(headline)}</span>
+          </div>
         </div>
         <div class="overview-bar-pills">
           ${pills.map(item => `<span class="overview-pill ${item.tone}">${esc(item.label)}</span>`).join("")}

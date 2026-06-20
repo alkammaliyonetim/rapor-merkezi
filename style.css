@@ -22,7 +22,9 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .app-shell{display:grid;grid-template-columns:172px minmax(0,1fr);min-height:100vh}
 .sidebar{background:#091428;border-right:1px solid var(--border);padding:12px 10px;position:sticky;top:0;height:100vh;overflow:auto}
 .brand{display:flex;gap:10px;align-items:center;margin-bottom:12px}
-.brand-badge{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--year-accent),#8b5cf6);font-weight:700;font-size:13px}
+.brand-badge{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--year-accent),#8b5cf6);font-weight:700;font-size:13px;overflow:hidden}
+.brand-logo{width:38px;height:38px;border-radius:10px;background:#b26a00;border:1px solid rgba(255,255,255,.14)}
+.brand-logo img{display:block;width:100%;height:100%;object-fit:cover}
 .brand h1{margin:0;font-size:15px}
 .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
 .menu{display:flex;flex-direction:column;gap:6px}
@@ -129,13 +131,15 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;min-width:0}
 .control-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
 .card-title{font-size:18px;font-weight:700;margin-bottom:12px}
-.overview-bar{grid-column:1/-1;display:grid;gap:10px;margin-bottom:8px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.03)}
+.overview-bar{grid-column:1/-1;display:grid;gap:10px;margin-bottom:8px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(90deg,rgba(178,106,0,.20),rgba(255,255,255,.035) 34%,rgba(255,255,255,.02));box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
 .overview-bar.ready{border-color:rgba(34,197,94,.28)}
 .overview-bar.warn{border-color:rgba(245,158,11,.28)}
 .overview-bar.risk{border-color:rgba(239,68,68,.28)}
 .overview-bar-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.overview-brand-lockup{display:flex;align-items:center;gap:12px;min-width:0}
+.overview-logo{width:72px;height:43px;border-radius:7px;object-fit:cover;background:#b26a00;border:1px solid rgba(255,255,255,.16);box-shadow:0 10px 22px rgba(0,0,0,.22);flex:0 0 auto}
 .overview-bar-title{display:flex;align-items:baseline;gap:10px;min-width:0}
-.overview-bar-title strong{font-size:16px;line-height:1;color:var(--text)}
+.overview-bar-title strong{font-size:20px;line-height:1;color:#fff}
 .overview-bar-title span{font-size:13px;line-height:1.4;color:var(--muted)}
 .overview-bar-pills{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .overview-bar-sub{align-items:flex-start;border-top:1px solid rgba(157,178,212,.14);padding-top:10px}
