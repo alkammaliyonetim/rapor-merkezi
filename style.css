@@ -8,21 +8,27 @@
   --text:#eef4ff;
   --muted:#9db2d4;
   --accent:#4f8cff;
+  --year-accent:#4f8cff;
+  --year-soft:rgba(79,140,255,.12);
   --good:#22c55e;
   --bad:#ef4444;
   --warn:#f59e0b;
 }
 body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
-.app-shell{display:grid;grid-template-columns:172px 1fr;min-height:100vh}
+body.year-theme-2023{--year-accent:#22c55e;--year-soft:rgba(34,197,94,.13)}
+body.year-theme-2024{--year-accent:#f59e0b;--year-soft:rgba(245,158,11,.13)}
+body.year-theme-2025{--year-accent:#4f8cff;--year-soft:rgba(79,140,255,.13)}
+body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
+.app-shell{display:grid;grid-template-columns:172px minmax(0,1fr);min-height:100vh}
 .sidebar{background:#091428;border-right:1px solid var(--border);padding:12px 10px;position:sticky;top:0;height:100vh;overflow:auto}
 .brand{display:flex;gap:10px;align-items:center;margin-bottom:12px}
-.brand-badge{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#4f8cff,#8b5cf6);font-weight:700;font-size:13px}
+.brand-badge{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--year-accent),#8b5cf6);font-weight:700;font-size:13px}
 .brand h1{margin:0;font-size:15px}
 .brand p{margin:4px 0 0;color:var(--muted);font-size:12px}
 .menu{display:flex;flex-direction:column;gap:6px}
 .menu-item{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;font-size:12px}
-.menu-item.active,.menu-item:hover{background:rgba(79,140,255,.12);border-color:var(--accent)}
-.main{padding:12px}
+.menu-item.active,.menu-item:hover{background:var(--year-soft);border-color:var(--year-accent)}
+.main{padding:12px;min-width:0;overflow:hidden;border-top:4px solid var(--year-accent)}
 .topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
 .topbar h2{margin:0 0 4px;font-size:18px}
 .topbar p{margin:0;color:var(--muted)}
@@ -120,7 +126,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:
 .detail-table-wrap th,.detail-table-wrap td{color:#111827;border-bottom:1px solid #e2e8f0}
 .cards-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:14px}
 .compare-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;min-width:0}
+.control-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
 .card-title{font-size:18px;font-weight:700;margin-bottom:12px}
 .overview-bar{grid-column:1/-1;display:grid;gap:10px;margin-bottom:8px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,.03)}
 .overview-bar.ready{border-color:rgba(34,197,94,.28)}
@@ -195,12 +202,12 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:
 .section-copy{margin:-6px 0 12px;color:var(--muted);font-size:13px}
 .table-meta{margin-top:10px;color:var(--muted);font-size:12px}
 .analysis-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:8px 0 14px}
-.analysis-card{border:1px solid rgba(157,178,212,.20);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border-radius:8px;padding:10px 12px;min-width:0}
+.analysis-card{border:1px solid rgba(157,178,212,.20);background:linear-gradient(180deg,var(--year-soft),rgba(255,255,255,.018));border-radius:8px;padding:10px 12px;min-width:0}
 .analysis-card span{display:block;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .analysis-card strong{display:block;margin-top:6px;color:var(--text);font-size:17px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .analysis-card small{display:block;margin-top:5px;color:var(--muted);font-size:12px;line-height:1.35;min-height:16px}
-.analysis-list{display:grid;gap:7px;margin:0 0 14px;padding:0;list-style:none}
-.analysis-list li{border-left:3px solid rgba(79,140,255,.65);background:rgba(79,140,255,.08);border-radius:0 8px 8px 0;padding:8px 10px;color:#dbeafe;font-size:13px;line-height:1.4}
+.analysis-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0 0 14px;padding:0;list-style:none}
+.analysis-list li{border-left:3px solid var(--year-accent);background:rgba(79,140,255,.08);border-radius:0 8px 8px 0;padding:8px 10px;color:#dbeafe;font-size:13px;line-height:1.4;min-width:0}
 .expense-cell{position:relative;min-width:92px;cursor:default;white-space:nowrap}
 .expense-cell:hover{box-shadow:inset 0 0 0 1px rgba(79,140,255,.42);background:rgba(79,140,255,.06)}
 .expense-cell-value{display:inline-block;min-width:76px}
@@ -211,6 +218,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:
 .product-cost-wrap{max-height:calc(100vh - 330px)}
 .cost-breakdown-table th,.cost-breakdown-table td,.expense-table th,.expense-table td{font-size:12px}
 .expense-table td:not(:first-child){text-align:right}
+.expense-table tbody tr:first-child td{background:rgba(34,197,94,.08);font-weight:900}
+.expense-table tbody tr:nth-child(2) td{background:rgba(245,158,11,.07)}
+.expense-table tbody tr:nth-child(3) td{background:rgba(79,140,255,.07)}
 .cost-matrix-wrap{max-height:calc(100vh - 300px);border:1px solid rgba(157,178,212,.14);border-radius:8px}
 .cost-matrix-table{min-width:1880px}
 .cost-matrix-table th,.cost-matrix-table td{font-size:12px;padding:7px 8px}
@@ -239,8 +249,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:
 .kpi.good .delta{color:var(--good)}
 .kpi.bad .delta{color:var(--bad)}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.table-wrap{overflow:auto}
-.table-wrap.slim{max-height:420px}
+.table-wrap{overflow:auto;max-width:100%}
+.table-wrap.slim{max-height:235px}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px;white-space:nowrap}
 th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255,.02);position:sticky;top:0}
@@ -272,10 +282,15 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
 .yonrapor-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .full-width{grid-column:1/-1}
 .filters-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.master-workbench{display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px;align-items:start}
+.master-side{display:grid;gap:12px;min-width:0}
+.master-side .filters-grid{grid-template-columns:1fr}
+.master-side .field select,.master-side .field input{width:100%;min-width:0}
+.master-main{min-width:0}
 .master-stats{margin-top:12px;color:var(--muted);font-size:13px;display:grid;gap:10px}
 .master-stats-row{display:flex;gap:8px;flex-wrap:wrap}
 .master-stats-note{font-size:12px;line-height:1.5;color:var(--muted)}
-.master-wrap{max-height:calc(100vh - 320px)}
+.master-wrap{max-height:calc(100vh - 226px);border:1px solid rgba(157,178,212,.12);border-radius:8px}
 .master-table .master-group-head th{background:#0d1a31;color:#dbeafe;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;z-index:3}
 .master-table .master-sub-head th{background:rgba(255,255,255,.04);color:var(--text);font-size:12px;font-weight:700;vertical-align:bottom;z-index:2}
 .master-table .master-full-head th{min-width:86px;white-space:nowrap}
@@ -350,7 +365,9 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
   .trust-status-grid{grid-template-columns:1fr}
   .analysis-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .compare-grid{grid-template-columns:1fr}
-  .two-col,.yonrapor-layout,.month-grid,.filters-grid,.import-layout,.annual-input-grid{grid-template-columns:1fr}
+  .two-col,.yonrapor-layout,.month-grid,.filters-grid,.import-layout,.annual-input-grid,.master-workbench{grid-template-columns:1fr}
+  .master-wrap{max-height:calc(100vh - 300px)}
+  .analysis-list{grid-template-columns:1fr}
 }
 @media (max-width:900px){
   .app-shell{grid-template-columns:1fr}

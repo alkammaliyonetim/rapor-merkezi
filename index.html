@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rapor Merkezi</title>
-  <link rel="stylesheet" href="style.css?v=1714-category-fix" />
+  <link rel="stylesheet" href="style.css?v=1813-layout-expense" />
 </head>
 <body>
   <div class="app-shell">
@@ -137,8 +137,9 @@
           <h3>MASTER_ERP</h3>
           <p>Tekil ürün maliyetleme görünümü ve kolon sözlüğü</p>
         </div>
-        <div class="two-col">
-          <div class="card">
+        <div class="master-workbench">
+          <aside class="master-side">
+          <div class="control-panel">
             <div class="card-title">Kolon Sözlüğü</div>
             <div class="table-wrap slim">
               <table>
@@ -147,7 +148,7 @@
               </table>
             </div>
           </div>
-          <div class="card">
+          <div class="control-panel">
             <div class="card-title">Filtreler</div>
             <div class="filters-grid">
               <label class="field"><span>Arama</span><input id="masterSearch" type="text" placeholder="Kod / ürün ara" /></label>
@@ -162,29 +163,30 @@
             </div>
             <div class="master-stats" id="masterStats"></div>
           </div>
-        </div>
+          </aside>
 
-        <div class="card">
-          <div class="card-title">Ürün Bazlı Maliyet Tablosu</div>
-          <p class="section-copy">Secili ay kolonlari WERP adlariyla gosterilir; tum ay seciminde son dolu ay kullanilir.</p>
-          <div class="table-wrap master-wrap">
-            <table class="wide-table master-table">
-              <thead id="masterHead">
-                <tr>
-                  <th>Ürün Kodu</th><th>Ürün</th><th>Kategori</th>
-                  <th>TADET</th><th>TCİRO</th><th>TMALİYET</th><th>TKAR</th><th>T%</th>
-                  <th>A</th><th>C</th><th>TM</th><th>KAR</th><th>BM</th><th>LG</th>
-                  <th>KAP1</th><th>KAP2</th><th>TUT</th><th>GG</th><th>DG</th>
-                  <th>MKOD</th><th>SKOD</th><th>KAP1KOD</th><th>KAP2KOD</th><th>TUKOD</th>
-                </tr>
-              </thead>
-              <tbody id="masterBody"></tbody>
-            </table>
-          </div>
-          <div class="pager">
-            <button id="masterPrev">Önceki</button>
-            <span id="masterPageLabel"></span>
-            <button id="masterNext">Sonraki</button>
+          <div class="card master-main">
+            <div class="card-title">Ürün Bazlı Maliyet Tablosu</div>
+            <p class="section-copy">Secili ay kolonlari WERP adlariyla gosterilir; tum ay seciminde son dolu ay kullanilir.</p>
+            <div class="table-wrap master-wrap">
+              <table class="wide-table master-table">
+                <thead id="masterHead">
+                  <tr>
+                    <th>Ürün Kodu</th><th>Ürün</th><th>Kategori</th>
+                    <th>TADET</th><th>TCİRO</th><th>TMALİYET</th><th>TKAR</th><th>T%</th>
+                    <th>A</th><th>C</th><th>TM</th><th>KAR</th><th>BM</th><th>LG</th>
+                    <th>KAP1</th><th>KAP2</th><th>TUT</th><th>GG</th><th>DG</th>
+                    <th>MKOD</th><th>SKOD</th><th>KAP1KOD</th><th>KAP2KOD</th><th>TUKOD</th>
+                  </tr>
+                </thead>
+                <tbody id="masterBody"></tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <button id="masterPrev">Önceki</button>
+              <span id="masterPageLabel"></span>
+              <button id="masterNext">Sonraki</button>
+            </div>
           </div>
         </div>
       </section>
@@ -347,8 +349,8 @@
 
   <script src="xlsx.full.min.js"></script>
   <script>window.XLSX = window.XLSX || (typeof exports !== "undefined" ? exports : undefined);</script>
-  <script src="report-data.js?v=1714-category-fix"></script>
-  <script src="report-detail-data.js?v=1714-category-fix"></script>
-  <script src="app.js?v=1714-category-fix"></script>
+  <script src="report-data.js?v=1813-layout-expense"></script>
+  <script src="report-detail-data.js?v=1813-layout-expense"></script>
+  <script src="app.js?v=1813-layout-expense"></script>
 </body>
 </html>

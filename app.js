@@ -2069,7 +2069,11 @@ function renderOverview() {
   row("Net Kar", "", months.map(month => incomeCell(safe(monthData(month).total.kar) - totalExpenseByMonth(month), "net", month, "")).join(""), "net-line", yearData.overview.netProfit);
 
   rows.push(`<tr class="section-row expense-section"><th>Giderler</th><td>EĞİLİM</td>${months.map(() => "<td></td>").join("")}<td></td></tr>`);
-  (yearData.expenseRows || DATA.expenseRows || []).forEach(exp => {
+  const overviewExpenseRows = [...(yearData.expenseRows || DATA.expenseRows || [])].sort((left, right) => {
+    const value = row => state.month === "all" ? safe(row[13]) : safe(row[Number(state.month)]);
+    return value(right) - value(left);
+  });
+  overviewExpenseRows.forEach(exp => {
     row(exp[0], "⌁", months.map(month => incomeCell(safe(exp[month]), "expense", month, exp[0])).join(""), "expense-line", safe(exp[13]));
   });
 
@@ -3901,6 +3905,7 @@ function syncDebugState() {
 }
 
 function render() {
+  applyYearTheme();
   renderYearNotice();
   updateHeader();
   renderOverview();
@@ -3979,9 +3984,23 @@ function bind() {
   const yearSelect = q("#yearSelect");
   yearSelect.innerHTML = Object.keys(DATA.years).map(y => `<option value="${y}">${y}</option>`).join("");
   yearSelect.value = state.year;
-  yearSelect.addEventListener("change", e => { state.year = e.target.value; state.month = "all"; state.masterPage = 1; populateMonthSelect(); render(); });
+  yearSelect.addEventListener("change", e => {
+    state.year = e.target.value;
+    state.month = "all";
+    state.masterPage = 1;
+    state.expenseSortKey = "total";
+    state.expenseSortDir = "desc";
+    populateMonthSelect();
+    render();
+  });
 
-  q("#monthSelect").addEventListener("change", e => { state.month = e.target.value; state.masterPage = 1; render(); });
+  q("#monthSelect").addEventListener("change", e => {
+    state.month = e.target.value;
+    state.masterPage = 1;
+    state.expenseSortKey = state.month === "all" ? "total" : `m${state.month}`;
+    state.expenseSortDir = "desc";
+    render();
+  });
 
   q("#masterSearch").addEventListener("input", e => { state.masterSearch = e.target.value; state.masterPage = 1; renderMaster(); });
   q("#masterCategory").addEventListener("change", e => { state.masterCategory = e.target.value; state.masterPage = 1; renderMaster(); });
@@ -4108,6 +4127,11 @@ function bind() {
     importEditWorkbookFile(file);
   });
   q("#importClear")?.addEventListener("click", clearImports);
+}
+
+function applyYearTheme() {
+  document.body.classList.remove("year-theme-2023", "year-theme-2024", "year-theme-2025", "year-theme-2026");
+  document.body.classList.add(`year-theme-${state.year}`);
 }
 
 function populateMonthSelect() {
