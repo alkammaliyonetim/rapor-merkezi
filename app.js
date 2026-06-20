@@ -251,11 +251,45 @@ function setAnnualInputsForYear(year, values) {
 
 function hydrateData(base) {
   const data = cloneData(base);
+  canonicalizeCategoryNames(data);
   applyImportsToData(data, loadImports());
+  canonicalizeCategoryNames(data);
   applyExpenseEditsToData(data, loadExpenseEdits());
   applyManualEditsToData(data, loadManualEdits());
   applyCostEditsToData(data, loadCostEdits());
   return data;
+}
+
+function canonicalCategoryName(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return text;
+  const fixed = fixMojibakeText(text);
+  const normalized = normalizeText(fixed).replace(/[^A-Z0-9]/g, "");
+  if (["MDF", "SUNTA", "KAPLAMA"].includes(normalized)) return normalized;
+  if (normalized.includes("KENARBANT")) return "KENAR BANT";
+  if (normalized.includes("CARSAF") || normalized.includes("ARAAF") || /^\?AR\?AF$/i.test(text)) return "ÇARŞAF";
+  if (normalized.includes("ISCILIK") || normalized.includes("ICILIK") || normalized.includes("IACILIK") || normalized.includes("ALAK") || /\?{2,}L\?K/i.test(text)) return "İŞÇİLİK";
+  if (normalized.includes("DIGER") || normalized.includes("DAAER") || /^D\?\?ER$/i.test(text)) return "DİĞER";
+  return fixed;
+}
+
+function canonicalizeCategoryNames(data) {
+  const applyCategory = item => {
+    if (!item || typeof item !== "object") return;
+    if ("name" in item) item.name = canonicalCategoryName(item.name);
+    if ("kategori" in item) item.kategori = canonicalCategoryName(item.kategori);
+    if ("category" in item) item.category = canonicalCategoryName(item.category);
+    if ("KATEGORİ" in item) item["KATEGORİ"] = canonicalCategoryName(item["KATEGORİ"]);
+    if ("KATEGORÄ°" in item) item["KATEGORÄ°"] = canonicalCategoryName(item["KATEGORÄ°"]);
+  };
+  Object.values(data?.years || {}).forEach(yearData => {
+    (yearData.yonPlus || []).forEach(month => (month.categories || []).forEach(applyCategory));
+    (yearData.categories || []).forEach(applyCategory);
+    (yearData.yonRapor?.categories || []).forEach(applyCategory);
+    (yearData.salesRows || []).forEach(applyCategory);
+  });
+  (data?.costRows || []).forEach(applyCategory);
+  (data?.masterRows || []).forEach(applyCategory);
 }
 
 function normalizeText(value) {
@@ -1977,7 +2011,7 @@ function renderOverview() {
   const cats = ["MDF", "SUNTA", "KAPLAMA", "KENAR BANT", "ÇARŞAF", "İŞÇİLİK", "DİĞER"];
   const units = { "MDF":"ADET", "SUNTA":"ADET", "KAPLAMA":"M2", "KENAR BANT":"M2", "ÇARŞAF":"M", "İŞÇİLİK":"ADET", "DİĞER":"ADET" };
   const monthData = month => yearData.yonPlus.find(m => m.month === month) || { categories: [], total: {} };
-  const catData = (month, name) => monthData(month).categories.find(c => c.name === name) || {};
+  const catData = (month, name) => monthData(month).categories.find(c => canonicalCategoryName(c.name) === name) || {};
   const totalExpenseByMonth = month => expenseMonthTotal(yearData, month);
   const rows = [];
   const rankMonths = state.month === "all" ? months : [Number(state.month)].filter(Boolean);
