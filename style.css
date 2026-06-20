@@ -164,6 +164,8 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .overview-foot-pills{display:flex;flex-wrap:wrap;gap:8px}
 .overview-foot-pill.warn{border-color:rgba(245,158,11,.24);background:rgba(245,158,11,.08);color:#fde68a}
 .overview-foot-pill.risk{border-color:rgba(239,68,68,.24);background:rgba(239,68,68,.08);color:#fecaca}
+button.overview-foot-pill{font-family:inherit;cursor:pointer}
+button.overview-foot-pill:hover{filter:brightness(1.14);transform:translateY(-1px)}
 .trust-card{padding:14px 16px}
 .trust-card.ready{border-color:rgba(34,197,94,.4);background:linear-gradient(180deg,rgba(34,197,94,.10),rgba(18,32,58,1))}
 .trust-card.warn{border-color:rgba(245,158,11,.42);background:linear-gradient(180deg,rgba(245,158,11,.10),rgba(18,32,58,1))}

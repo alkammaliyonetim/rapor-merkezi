@@ -6,6 +6,7 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
+const APP_VERSION_STAMP = "185820262006";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
@@ -804,6 +805,7 @@ function saveManualIncomeCell(cell) {
 }
 
 function formatVersionStamp(meta = {}) {
+  if (APP_VERSION_STAMP) return APP_VERSION_STAMP;
   const candidates = [meta.generatedAt, DETAIL_BASE?.meta?.generatedAt]
     .filter(Boolean)
     .map(value => {
@@ -1064,6 +1066,16 @@ function renderYearNotice() {
   if (!notice) return;
   notice.innerHTML = "";
   notice.classList.add("hidden");
+}
+
+function missingItemControlKey(item) {
+  const text = normalizeText(item || "");
+  if (text.includes("DETAY CIRO FARKI")) return "detailRevenue";
+  if (text.includes("GIDER FARKI")) return "expenseRows";
+  if (text.includes("BOS MUSTERI")) return "blankCustomer";
+  if (text.includes("BOS FATURA")) return "blankInvoice";
+  if (text.includes("KONTROL FARKI")) return "categoryRevenue";
+  return "";
 }
 
 function computeComparisons() {
@@ -1492,18 +1504,25 @@ function buildCustomerDetailPayload(customerName) {
 }
 
 function controlMonthComparisonRows(yearData) {
-  const detailRows = detailStore().salesRows.filter(row => String(row.year) === state.year && !isRentIncomeRow(row));
+  const detailRows = detailStore().salesRows.filter(row => String(row.year) === state.year);
   return Array.from({ length: 12 }, (_, idx) => {
     const month = idx + 1;
-    const detailRevenue = detailRows.filter(row => row.month === month).reduce((sum, row) => sum + safe(row.amount), 0);
+    const monthDetailRows = detailRows.filter(row => row.month === month);
+    const rentRows = monthDetailRows.filter(isRentIncomeRow);
+    const detailRevenue = monthDetailRows.reduce((sum, row) => sum + safe(row.amount), 0);
+    const rentRevenue = rentRows.reduce((sum, row) => sum + safe(row.amount), 0);
+    const factoryDetailRevenue = detailRevenue - rentRevenue;
     const summaryRevenue = safe(yearData.yonPlus.find(row => row.month === month)?.total?.ciro);
     const categoryRevenue = (yearData.yonPlus.find(row => row.month === month)?.categories || []).reduce((sum, row) => sum + safe(row.ciro), 0);
     return {
       month: monthLabels[month],
       detailRevenue,
+      rentRevenue,
+      factoryDetailRevenue,
       summaryRevenue,
       categoryRevenue,
       detailDiff: detailRevenue - summaryRevenue,
+      factoryDetailDiff: factoryDetailRevenue - summaryRevenue,
       categoryDiff: categoryRevenue - summaryRevenue
     };
   });
@@ -1524,8 +1543,13 @@ function buildControlDetailPayload(checkKey, checkLabel) {
           left: inferredKey === "detailRevenue" ? row.detailRevenue : row.categoryRevenue,
           right: row.summaryRevenue,
           diff,
+          rentRevenue: row.rentRevenue,
+          factoryDetailRevenue: row.factoryDetailRevenue,
+          factoryDetailDiff: row.factoryDetailDiff,
           reason: inferredKey === "detailRevenue"
-            ? "Kaynak detay satır toplamı özet cirodan farklı."
+            ? (row.rentRevenue
+              ? "NELL kira bu ay ayrıca gösterildi; ana fark yine detay/özet bağlantısından geliyor."
+              : "Kaynak detay satır toplamı özet cirodan farklı.")
             : "Kategori kırılım toplamı YÖN_RAPOR toplam cirodan farklı."
         });
       }
@@ -1567,12 +1591,18 @@ function buildControlDetailPayload(checkKey, checkLabel) {
     });
   }
   const numericRows = rows.filter(row => "diff" in row);
+  const rentTotal = numericRows.reduce((sum, row) => sum + safe(row.rentRevenue), 0);
+  const factoryDiffTotal = numericRows.reduce((sum, row) => sum + safe(row.factoryDetailDiff), 0);
   return {
     title: `${checkLabel} Detayı`,
     subtitle: `${state.year} • kontrol fark izleme`,
     stats: [
       { label: "Farklı satır", value: num(rows.length) },
       { label: "Toplam fark", value: money(numericRows.reduce((sum, row) => sum + safe(row.diff), 0)) },
+      ...(checkKey === "detailRevenue" ? [
+        { label: "NELL kira toplamı", value: money(rentTotal) },
+        { label: "Fabrika farkı", value: money(factoryDiffTotal) }
+      ] : []),
       { label: "Durum", value: rows.length ? "Düzeltilecek" : "Temiz" }
     ],
     insights: [
@@ -1593,6 +1623,9 @@ function buildControlDetailPayload(checkKey, checkLabel) {
       { key: "source", label: "Kaynak" },
       { key: "left", label: "Sol", format: "money" },
       { key: "right", label: "Sağ", format: "money" },
+      { key: "rentRevenue", label: "NELL Kira", format: "money" },
+      { key: "factoryDetailRevenue", label: "Fabrika Detay", format: "money" },
+      { key: "factoryDetailDiff", label: "Fabrika Fark", format: "money" },
       { key: "diff", label: "Fark", format: "money" },
       { key: "reason", label: "Sebep" }
     ],
@@ -1930,6 +1963,12 @@ function renderOverviewConfidence() {
     { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` }
   ];
   const followTone = summary.status === "risk" ? "risk" : "warn";
+  const followPill = item => {
+    const key = missingItemControlKey(item);
+    return key
+      ? `<button class="overview-foot-pill ${followTone}" type="button" data-check="${esc(key)}" data-label="${esc(item)}">${esc(item)}</button>`
+      : `<span class="overview-foot-pill ${followTone}">${esc(item)}</span>`;
+  };
 
   overview.innerHTML = `
     <div class="card overview-strip ${summary.status}">
@@ -1948,7 +1987,7 @@ function renderOverviewConfidence() {
         <div class="overview-strip-foot">
           <span class="overview-foot-label">Takip</span>
           <div class="overview-foot-pills">
-            ${followUps.map(item => `<span class="overview-foot-pill ${followTone}">${esc(item)}</span>`).join("")}
+            ${followUps.map(followPill).join("")}
           </div>
         </div>
       ` : ""}
@@ -1979,6 +2018,12 @@ function renderOverviewSummaryBar() {
     { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` }
   ];
   const followTone = summary.status === "risk" ? "risk" : "warn";
+  const followPill = item => {
+    const key = missingItemControlKey(item);
+    return key
+      ? `<button class="overview-foot-pill ${followTone}" type="button" data-check="${esc(key)}" data-label="${esc(item)}">${esc(item)}</button>`
+      : `<span class="overview-foot-pill ${followTone}">${esc(item)}</span>`;
+  };
 
   overview.innerHTML = `
     <div class="overview-bar ${summary.status}">
@@ -2000,7 +2045,7 @@ function renderOverviewSummaryBar() {
             ${metaItems.map(item => `<span>${esc(item)}</span>`).join("")}
           </div>
           <div class="overview-bar-alerts">
-            ${followUps.map(item => `<span class="overview-foot-pill ${followTone}">${esc(item)}</span>`).join("")}
+            ${followUps.map(followPill).join("")}
           </div>
         </div>
       ` : ""}
@@ -3983,6 +4028,11 @@ function bind() {
     const item = e.target.closest("[data-check]");
     if (!item) return;
     openCellDetail("Kontrol Fark Detayı", item.dataset.label || "Kontrol", buildControlDetailPayload(item.dataset.check, item.dataset.label || "Kontrol"));
+  });
+  q("#overviewConfidence")?.addEventListener("click", e => {
+    const item = e.target.closest("[data-check]");
+    if (!item) return;
+    openCellDetail("Kontrol Fark Detayi", item.dataset.label || "Kontrol", buildControlDetailPayload(item.dataset.check, item.dataset.label || "Kontrol"));
   });
   const yearSelect = q("#yearSelect");
   yearSelect.innerHTML = Object.keys(DATA.years).map(y => `<option value="${y}">${y}</option>`).join("");
