@@ -4,12 +4,14 @@ const ANNUAL_INPUT_STORAGE_KEY = "raporMerkeziAnnualInputsV1";
 const EXPENSE_EDIT_STORAGE_KEY = "raporMerkeziExpenseEditsV1";
 const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
-const EDIT_PASSWORD = "1906";
+const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
+const EDIT_PASSWORD = "2909";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
 let DETAIL_CACHE = null;
 let lastExpenseEdit = null;
+let lastCostEdit = null;
 const state = { year: "2025", month: "all", view: "overview", masterPage: 1, masterPageSize: 50, masterSearch: "", masterCategory: "Tümü", masterMode: "summary", costSearch: "", costCurrency: "Tümü", costCategory: "Tümü", costSortKey: "yearTotal", costSortDir: "desc", escalationSortKey: "deltaPct", escalationSortDir: "desc", productCostSortKey: "totalCost", productCostSortDir: "desc", expenseSortKey: "total", expenseSortDir: "desc", importLog: [], detailPayload: null, detailFilter: "" };
 
 const monthLabels = {
@@ -2279,6 +2281,9 @@ function renderMaster() {
   const yearKey = state.year === "2025" ? "totals25" : "totals26";
   const totalRevenue = rows.reduce((sum, row) => sum + safe(row[yearKey]?.ciro), 0);
   const totalCost = rows.reduce((sum, row) => sum + safe(monthMetric(row).TM), 0);
+  const masterSourceWarning = state.year === "2026" && activeCount === 0
+    ? `<div class="master-stats-warning">2026 MASTER_ERP aylik WERP alanlari kaynak veride bos. Satis, gider ve hammadde maliyetleri ayri calisiyor; urun-urun 2026 ERP maliyetleme icin 2026 MASTER_ERP aylik alanlari baglanmali.</div>`
+    : "";
 
   if (state.masterMode === "full") {
     const columns = masterFullColumns();
@@ -2303,6 +2308,7 @@ function renderMaster() {
       <tr>${columns.map(column => `<td>${formatMasterFullValue(column.value(row), column.format)}</td>`).join("")}</tr>
     `).join("");
     q("#masterPageLabel").textContent = `Sayfa ${state.masterPage} / ${totalPages} • ${slice.length.toLocaleString("tr-TR")} kayıt`;
+    if (masterSourceWarning) q("#masterStats").insertAdjacentHTML("beforeend", masterSourceWarning);
     return;
   }
 
@@ -2355,6 +2361,7 @@ function renderMaster() {
       Recete aramalarinda MKOD, SKOD, KAP1KOD, KAP2KOD ve TUKOD da filtreye dahildir.
     </div>
   `;
+  if (masterSourceWarning) q("#masterStats").insertAdjacentHTML("beforeend", masterSourceWarning);
   q("#masterBody").innerHTML = slice.map(r => {
     const totals = state.year === "2025" ? r.totals25 : r.totals26;
     const m = monthMetric(r);
@@ -2465,6 +2472,92 @@ function costRowByCode(wkod) {
   return filteredCostRows().find(row => row.wkod === String(wkod));
 }
 
+function sourceCostRow(wkod) {
+  const code = String(wkod || "");
+  if (!code) return null;
+  return (BASE_DATA?.costRows || []).find(row => String(row?.WKOD ?? "") === code) || null;
+}
+
+function sourceCostValue(wkod, monthIndex) {
+  const row = sourceCostRow(wkod);
+  if (!row) return null;
+  const months = state.year === "2025" ? row.months25 : row.months26;
+  if (!Array.isArray(months)) return null;
+  return safe(months[monthIndex]);
+}
+
+function isCostCellEdited(wkod, monthIndex, value) {
+  const edits = loadCostEdits()?.[String(state.year)]?.[String(wkod)] || null;
+  if (!Array.isArray(edits)) return false;
+  if (Math.abs(safe(edits[monthIndex]) - safe(value)) >= 0.001) return false;
+  const sourceValue = sourceCostValue(wkod, monthIndex);
+  return sourceValue === null || Math.abs(safe(value) - safe(sourceValue)) >= 0.001;
+}
+
+function setCostCellValue(wkod, monthIndex, nextValue, renderAfter = true) {
+  const code = String(wkod || "");
+  const sourceRow = DATA.costRows.find(row => String(row.WKOD ?? "") === code);
+  if (!sourceRow) return false;
+  const target = state.year === "2025" ? sourceRow.months25 : sourceRow.months26;
+  if (!Array.isArray(target)) return false;
+  const oldValue = safe(target[monthIndex]);
+  target[monthIndex] = safe(nextValue);
+  persistCostRowEdit(state.year, code, target);
+  lastCostEdit = { year: state.year, wkod: code, monthIndex, oldValue, nextValue: safe(nextValue) };
+  if (renderAfter) renderCosts();
+  return true;
+}
+
+function restoreCostCell(wkod, monthIndex) {
+  const row = DATA.costRows.find(entry => String(entry.WKOD ?? "") === String(wkod));
+  if (!row) return;
+  const sourceValue = sourceCostValue(wkod, monthIndex);
+  if (sourceValue === null) {
+    window.alert("Kaynak dosyada bu maliyet hucresi icin eski deger bulunamadi.");
+    return;
+  }
+  if (!ensureEditPassword()) return;
+  const product = formatCostProduct(row);
+  const current = safe((state.year === "2025" ? row.months25 : row.months26)?.[monthIndex]);
+  if (!window.confirm(`${monthLabels[monthIndex + 1]} ${product}\nMevcut: ${money(current)}\nKaynak deger: ${money(sourceValue)}\n\nKaynak degere donulsun mu?`)) return;
+  setCostCellValue(wkod, monthIndex, sourceValue);
+}
+
+function undoLastCostEdit() {
+  if (!lastCostEdit || lastCostEdit.year !== state.year) {
+    window.alert("Bu oturumda geri alinacak maliyet degisikligi yok.");
+    return;
+  }
+  if (!ensureEditPassword()) return;
+  setCostCellValue(lastCostEdit.wkod, lastCostEdit.monthIndex, lastCostEdit.oldValue);
+}
+
+function editCostCell(wkod, monthIndex) {
+  const row = DATA.costRows.find(entry => String(entry.WKOD ?? "") === String(wkod));
+  if (!row) return;
+  if (!ensureEditPassword()) return;
+  const months = state.year === "2025" ? row.months25 : row.months26;
+  const currentValue = safe(months?.[monthIndex]);
+  const sourceValue = sourceCostValue(wkod, monthIndex);
+  const product = formatCostProduct(row);
+  const promptText = [
+    `${monthLabels[monthIndex + 1]} ${product}`,
+    `Mevcut deger: ${money(currentValue)}`,
+    sourceValue === null ? "Kaynak deger: bulunamadi" : `Kaynak deger: ${money(sourceValue)}`,
+    "",
+    "Yeni degeri girin. Bos birakirsaniz degismez."
+  ].join("\n");
+  const nextRaw = window.prompt(promptText, money(currentValue));
+  if (nextRaw === null || String(nextRaw).trim() === "") return;
+  const nextValue = nullableNumber(nextRaw);
+  if (nextValue === null) {
+    window.alert("Gecerli bir sayi girilmedi. Hucre degistirilmedi.");
+    return;
+  }
+  if (!window.confirm(`${product}\nEski: ${money(currentValue)}\nYeni: ${money(nextValue)}\n\nDegisiklik kaydedilsin mi?`)) return;
+  setCostCellValue(wkod, monthIndex, nextValue);
+}
+
 function buildCostFormulaPayload(row, monthNo) {
   const monthIndex = Math.max(0, Number(monthNo) - 1);
   const value = safe(row.monthValues?.[monthIndex]);
@@ -2529,16 +2622,9 @@ function buildCostFormulaPayload(row, monthNo) {
 }
 
 function updateCostCell(wkod, monthIndex, rawValue, rerender = false) {
-  window.alert("Maliyet ve eskalasyon hücreleri kilitlidir. Bu alanlar manuel değiştirilemez.");
-  if (rerender) renderCosts();
-  return;
-  const sourceRow = DATA.costRows.find(row => String(row.WKOD ?? "") === String(wkod));
-  if (!sourceRow) return;
-  const target = state.year === "2025" ? sourceRow.months25 : sourceRow.months26;
-  if (!Array.isArray(target)) return;
-  target[monthIndex] = nullableNumber(rawValue) ?? 0;
-  persistCostRowEdit(state.year, wkod, target);
-  if (rerender) renderCosts();
+  const nextValue = nullableNumber(rawValue);
+  if (nextValue === null) return;
+  setCostCellValue(wkod, monthIndex, nextValue, rerender);
 }
 
 function buildEscalationRows() {
@@ -2890,14 +2976,18 @@ function renderCosts() {
       <td>${esc(row.category)}</td>
       <td>${money(row.basePrice)}</td>
       <td>${esc(row.currency)}</td>
-      ${row.monthValues.map((value, idx) => `
-        <td class="cost-month-cell" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
+      ${row.monthValues.map((value, idx) => {
+        const edited = isCostCellEdited(row.wkod, idx, value);
+        return `
+        <td class="cost-month-cell ${edited ? "edited" : ""}" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
           <div class="cost-cell-control">
-            <input class="cost-input cost-locked-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Hammadde maliyeti kilitli / hesap alanı" readonly />
-            <button class="cost-explain" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}" title="Hesap ve eskalasyon açıklaması">?</button>
+            <input class="cost-input cost-protected-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Cift tik / sag tik ile sifreli duzenle" readonly />
+            ${edited ? `<button class="cost-undo" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx}" title="Kaynak degere don">Geri</button>` : ""}
+            <button class="cost-explain" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}" title="Hesap ve eskalasyon aciklamasi">?</button>
           </div>
         </td>
-      `).join("")}
+      `;
+      }).join("")}
       <td>${money(row.yearAvg)}</td>
       <td>${money(row.yearTotal)}</td>
       <td>${pct(row.deltaPct)}</td>
@@ -3567,9 +3657,179 @@ function exportImports() {
   URL.revokeObjectURL(url);
 }
 
+function assertXlsxReady() {
+  if (!window.XLSX) throw new Error("Excel okuyucu yuklenemedi.");
+}
+
+function addWorkbookSheet(wb, name, rows) {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+}
+
+function exportEditWorkbook() {
+  try {
+    assertXlsxReady();
+    const wb = XLSX.utils.book_new();
+    addWorkbookSheet(wb, "Ayarlar", [
+      ["FORMAT", EDIT_WORKBOOK_MARKER],
+      ["GeneratedAt", new Date().toISOString()],
+      ["PasswordRequired", "2909"],
+      ["Note", "Bu dosya ham satis/gider yukleme dosyasi degildir; sadece manuel duzeltme katmanini gunceller."]
+    ]);
+
+    const expenseRows = [["MODULE", "YEAR", "KATEGORI", "AY_NO", "AY", "DEGER"]];
+    Object.keys(DATA.years || {}).sort().forEach(year => {
+      (DATA.years[year].expenseRows || []).forEach(row => {
+        for (let idx = 0; idx < 12; idx += 1) {
+          expenseRows.push(["GIDER", year, row[0], idx + 1, monthLabels[idx + 1], safe(row[idx + 1])]);
+        }
+      });
+    });
+    addWorkbookSheet(wb, "Giderler", expenseRows);
+
+    const costRows = [["MODULE", "YEAR", "WKOD", "URUN", "KATEGORI", "PB", "BASE_PRICE", "AY_NO", "AY", "DEGER"]];
+    (DATA.costRows || []).forEach(row => {
+      ["2025", "2026"].forEach(year => {
+        const months = year === "2025" ? row.months25 : row.months26;
+        for (let idx = 0; idx < 12; idx += 1) {
+          costRows.push(["MALIYET", year, row.WKOD, formatCostProduct(row), row.KATEGORİ || row["KATEGORİ"] || row["KATEGORÄ°"] || "", normalizeCurrency(row.Currency), safe(row.Base_Price), idx + 1, monthLabels[idx + 1], safe(months?.[idx])]);
+        }
+      });
+    });
+    addWorkbookSheet(wb, "Maliyetler", costRows);
+
+    const incomeRows = [["YEAR", "BOLUM", "KALEM", "AY_NO", "AY", "DEGER"]];
+    Object.keys(DATA.years || {}).sort().forEach(year => {
+      const yearData = DATA.years[year];
+      (yearData.yonPlus || []).forEach(monthData => {
+        (monthData.categories || []).forEach(category => {
+          incomeRows.push([year, "SATIS", category.name, monthData.month, monthData.label, safe(category.ciro)]);
+          incomeRows.push([year, "MIKTAR", category.name, monthData.month, monthData.label, safe(category.adet)]);
+          incomeRows.push([year, "SATIS_MALIYETI", category.name, monthData.month, monthData.label, safe(category.maliyet)]);
+        });
+        incomeRows.push([year, "TOPLAM_SATIS", "TOPLAM", monthData.month, monthData.label, safe(monthData.total?.ciro)]);
+        incomeRows.push([year, "TOPLAM_MALIYET", "TOPLAM", monthData.month, monthData.label, safe(monthData.total?.maliyet)]);
+        incomeRows.push([year, "BRUT_KAR", "TOPLAM", monthData.month, monthData.label, safe(monthData.total?.kar)]);
+        incomeRows.push([year, "TOPLAM_GIDER", "TOPLAM", monthData.month, monthData.label, expenseMonthTotal(yearData, monthData.month)]);
+        incomeRows.push([year, "NET_KAR", "TOPLAM", monthData.month, monthData.label, safe(monthData.total?.kar) - expenseMonthTotal(yearData, monthData.month)]);
+      });
+    });
+    addWorkbookSheet(wb, "Gelir_Tablosu", incomeRows);
+
+    const masterRows = [["YEAR", "URUN_KODU", "URUN", "KATEGORI", "TADET", "TCIRO", "TMALIYET", "TKAR", "MARJ"]];
+    (DATA.masterRows || []).forEach(row => {
+      [["2025", row.totals25], ["2026", row.totals26]].forEach(([year, totals]) => {
+        masterRows.push([year, row.code, row.name, row.category, safe(totals?.adet), safe(totals?.ciro), safe(totals?.maliyet), safe(totals?.kar), safe(totals?.marj)]);
+      });
+    });
+    addWorkbookSheet(wb, "Master_ERP", masterRows);
+
+    const customerRows = [["YEAR", "SIRA", "MUSTERI", "CIRO", "PAY"]];
+    Object.keys(DATA.years || {}).sort().forEach(year => {
+      visibleSalesCustomers(DATA.years[year].customers || []).forEach(customer => {
+        customerRows.push([year, customer.rank, customer.name, safe(customer.ciro), safe(customer.pay)]);
+      });
+    });
+    addWorkbookSheet(wb, "Musteriler", customerRows);
+
+    const controlRows = [["YEAR", "KONTROL", "SOL", "SAG", "FARK", "DURUM"]];
+    buildControlChecks().forEach(check => {
+      controlRows.push([state.year, check.label, safe(check.left), safe(check.right), safe(check.diff), check.pass ? "OK" : "FARK"]);
+    });
+    addWorkbookSheet(wb, "Kontrol", controlRows);
+
+    XLSX.writeFile(wb, `rapor-merkezi-duzeltme-${state.year}.xlsx`);
+    state.importLog.unshift(`Excel duzeltme dosyasi disari aktarildi: ${state.year}`);
+    renderImport();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function readSheetRows(wb, name) {
+  const sheet = wb.Sheets[name];
+  if (!sheet) return [];
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
+}
+
+function headerMap(headerRow = []) {
+  const map = new Map();
+  headerRow.forEach((name, idx) => map.set(normalizeText(name), idx));
+  return map;
+}
+
+function cellByHeader(row, headers, label) {
+  const idx = headers.get(normalizeText(label));
+  return idx === undefined ? "" : row[idx];
+}
+
+function workbookHasEditMarker(wb) {
+  return readSheetRows(wb, "Ayarlar").some(row => String(row[0] || "").trim() === "FORMAT" && String(row[1] || "").trim() === EDIT_WORKBOOK_MARKER);
+}
+
+function applyEditWorkbookRows(wb) {
+  let expenseCount = 0;
+  let costCount = 0;
+  const expenseRows = readSheetRows(wb, "Giderler");
+  if (expenseRows.length > 1) {
+    const headers = headerMap(expenseRows[0]);
+    expenseRows.slice(1).forEach(row => {
+      const year = String(cellByHeader(row, headers, "YEAR") || "").trim();
+      const label = String(cellByHeader(row, headers, "KATEGORI") || "").trim();
+      const monthIndex = Number(cellByHeader(row, headers, "AY_NO")) - 1;
+      const value = nullableNumber(cellByHeader(row, headers, "DEGER"));
+      const yearData = DATA.years?.[year];
+      if (!yearData || !label || monthIndex < 0 || monthIndex > 11 || value === null) return;
+      const targetRow = (yearData.expenseRows || []).find(entry => entry[0] === label);
+      if (!targetRow) return;
+      targetRow[monthIndex + 1] = value;
+      targetRow[13] = Array.from({ length: 12 }, (_, idx) => safe(targetRow[idx + 1])).reduce((sum, item) => sum + item, 0);
+      persistExpenseRowEdit(year, targetRow);
+      expenseCount += 1;
+    });
+  }
+  const costRows = readSheetRows(wb, "Maliyetler");
+  if (costRows.length > 1) {
+    const headers = headerMap(costRows[0]);
+    costRows.slice(1).forEach(row => {
+      const year = String(cellByHeader(row, headers, "YEAR") || "").trim();
+      const wkod = String(cellByHeader(row, headers, "WKOD") || "").trim();
+      const monthIndex = Number(cellByHeader(row, headers, "AY_NO")) - 1;
+      const value = nullableNumber(cellByHeader(row, headers, "DEGER"));
+      const targetRow = (DATA.costRows || []).find(entry => String(entry.WKOD ?? "") === wkod);
+      const months = year === "2025" ? targetRow?.months25 : year === "2026" ? targetRow?.months26 : null;
+      if (!targetRow || !Array.isArray(months) || monthIndex < 0 || monthIndex > 11 || value === null) return;
+      months[monthIndex] = value;
+      persistCostRowEdit(year, wkod, months);
+      costCount += 1;
+    });
+  }
+  DATA = hydrateData(BASE_DATA);
+  DETAIL_CACHE = null;
+  return { expenseCount, costCount };
+}
+
+async function importEditWorkbookFile(file) {
+  try {
+    assertXlsxReady();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+    if (!workbookHasEditMarker(wb)) {
+      window.alert("Bu dosya rapor merkezi duzeltme dosyasi degil. Ham satis/gider dosyalari bu alandan yuklenmez.");
+      return;
+    }
+    if (!ensureEditPassword()) return;
+    const result = applyEditWorkbookRows(wb);
+    state.importLog.unshift(`${file.name}: ${num(result.expenseCount)} gider, ${num(result.costCount)} maliyet duzeltmesi uygulandi.`);
+    populateMonthSelect();
+    render();
+  } catch (error) {
+    window.alert(`Excel duzeltme ice aktarimi basarisiz: ${error.message}`);
+  }
+}
+
 function clearImports() {
   localStorage.removeItem(IMPORT_STORAGE_KEY);
-  DATA = cloneData(BASE_DATA);
+  DATA = hydrateData(BASE_DATA);
   DETAIL_CACHE = null;
   state.importLog.unshift("Yerel içe aktarım verisi temizlendi.");
   populateMonthSelect();
@@ -3702,6 +3962,12 @@ function bind() {
   q("#annualCostSave")?.addEventListener("click", saveAnnualInputsFromForm);
   q("#annualCostClear")?.addEventListener("click", clearAnnualInputsForYear);
   q("#costBody")?.addEventListener("click", event => {
+    const undoButton = event.target.closest(".cost-undo");
+    if (undoButton) {
+      event.stopPropagation();
+      restoreCostCell(undoButton.dataset.wkod, Number(undoButton.dataset.month));
+      return;
+    }
     const explain = event.target.closest(".cost-explain");
     if (!explain) return;
     const row = costRowByCode(explain.dataset.wkod);
@@ -3712,6 +3978,17 @@ function bind() {
       `${state.year} • ${monthLabels[month]} • ${row.wkod} • ${row.formattedProduct || row.product}`,
       buildCostFormulaPayload(row, month)
     );
+  });
+  q("#costBody")?.addEventListener("dblclick", event => {
+    const input = event.target.closest(".cost-input");
+    if (!input) return;
+    editCostCell(input.dataset.wkod, Number(input.dataset.month));
+  });
+  q("#costBody")?.addEventListener("contextmenu", event => {
+    const input = event.target.closest(".cost-input");
+    if (!input) return;
+    event.preventDefault();
+    editCostCell(input.dataset.wkod, Number(input.dataset.month));
   });
   q("#costBody")?.addEventListener("input", event => {
     const input = event.target.closest(".cost-input");
@@ -3729,6 +4006,12 @@ function bind() {
     event.preventDefault();
     updateCostCell(input.dataset.wkod, Number(input.dataset.month), input.value, true);
     input.blur();
+  });
+  q("#costBody")?.addEventListener("keydown", event => {
+    if (event.ctrlKey && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      undoLastCostEdit();
+    }
   });
   const onSortClick = event => {
     const button = event.target.closest(".sort-header");
@@ -3782,6 +4065,14 @@ function bind() {
     });
   });
   q("#importExport")?.addEventListener("click", exportImports);
+  q("#editWorkbookExport")?.addEventListener("click", exportEditWorkbook);
+  q("#editWorkbookImport")?.addEventListener("click", () => q("#editWorkbookFile")?.click());
+  q("#editWorkbookFile")?.addEventListener("change", event => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    importEditWorkbookFile(file);
+  });
   q("#importClear")?.addEventListener("click", clearImports);
 }
 

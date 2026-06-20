@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rapor Merkezi</title>
-  <link rel="stylesheet" href="style.css?v=1216-control-detail" />
+  <link rel="stylesheet" href="style.css?v=1311-edit-workbook" />
 </head>
 <body>
   <div class="app-shell">
@@ -294,6 +294,9 @@
             <div class="button-row">
               <button id="importProcess">Dosyaları İşle</button>
               <button id="importExport">JSON Dışa Aktar</button>
+              <button id="editWorkbookExport">Excel Duzeltme Disa Aktar</button>
+              <button id="editWorkbookImport">Excel Duzeltme Ice Aktar</button>
+              <input id="editWorkbookFile" type="file" accept=".xlsx,.xls" hidden />
               <button id="importClear" class="danger">Yerel Veriyi Temizle</button>
             </div>
             <div id="importSummary" class="import-summary"></div>
@@ -344,8 +347,8 @@
 
   <script src="xlsx.full.min.js"></script>
   <script>window.XLSX = window.XLSX || (typeof exports !== "undefined" ? exports : undefined);</script>
-  <script src="report-data.js?v=1216-control-detail"></script>
-  <script src="report-detail-data.js?v=1216-control-detail"></script>
-  <script src="app.js?v=1216-control-detail"></script>
+  <script src="report-data.js?v=1311-edit-workbook"></script>
+  <script src="report-detail-data.js?v=1311-edit-workbook"></script>
+  <script src="app.js?v=1311-edit-workbook"></script>
 </body>
 </html>
