@@ -106,11 +106,27 @@ function isRentIncomeCustomer(value) {
 }
 
 function isSalesAnalysisCustomer(row) {
-  return !isRentIncomeCustomer(row?.name ?? row?.customerName ?? row?.unvan);
+  const name = row?.name ?? row?.customerName ?? row?.unvan;
+  return isReportableCustomerName(name);
 }
 
 function isRentIncomeRow(row) {
   return isRentIncomeCustomer(row?.customerName ?? row?.unvan ?? row?.name);
+}
+
+function isReportableCustomerName(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  const normalized = normalizeText(fixMojibakeText(text));
+  if (isRentIncomeCustomer(text)) return false;
+  return ![
+    "TANIMSIZ",
+    "TANIMSIZ MUSTERI",
+    "KAYNAK DETAY SATIRI",
+    "BAGLANTI BEKLIYOR",
+    "KAYITSIZ",
+    "MUSTERI YOK"
+  ].includes(normalized);
 }
 
 function visibleSalesCustomers(customers = []) {
@@ -1383,6 +1399,175 @@ function buildSalesDetailPayload(kind, month, itemName) {
   };
 }
 
+function buildCustomerDetailPayload(customerName) {
+  const target = String(customerName || "").trim();
+  const rows = detailStore().salesRows
+    .filter(row => String(row.year) === state.year && isReportableCustomerName(row.customerName) && sameLabel(row.customerName, target) && !isRentIncomeRow(row))
+    .map(row => ({
+      date: row.date || monthLabels[row.month],
+      monthLabel: monthLabels[row.month] || row.month,
+      invoiceNo: row.invoiceNo || "—",
+      customerCode: row.customerCode || "—",
+      customerName: row.customerName,
+      productCode: row.productCode || "—",
+      product: row.product,
+      unit: row.unit || defaultUnitForCategory(row.category),
+      quantity: safe(row.quantity),
+      amount: safe(row.amount),
+      category: row.category,
+      sourceFile: row.sourceFile
+    }))
+    .sort((a, b) =>
+      String(a.date).localeCompare(String(b.date)) ||
+      a.invoiceNo.localeCompare(b.invoiceNo, "tr") ||
+      b.amount - a.amount
+    );
+  const total = rows.reduce((sum, row) => sum + safe(row.amount), 0);
+  return {
+    columns: [
+      { key: "date", label: "Tarih" },
+      { key: "monthLabel", label: "Ay" },
+      { key: "invoiceNo", label: "Fatura" },
+      { key: "customerCode", label: "Cari" },
+      { key: "category", label: "Kategori" },
+      { key: "productCode", label: "Kod" },
+      { key: "product", label: "Ürün" },
+      { key: "unit", label: "Birim" },
+      { key: "quantity", label: "Miktar", format: "qty", unitKey: "unit" },
+      { key: "amount", label: "Satış Tutarı", format: "money" }
+    ],
+    rows,
+    stats: [
+      { label: "Satır", value: num(rows.length) },
+      { label: "Fatura", value: num(new Set(rows.map(row => row.invoiceNo).filter(value => value && value !== "—")).size) },
+      { label: "Ciro", value: money(total) },
+      { label: "Ürün", value: num(new Set(rows.map(row => row.product).filter(Boolean)).size) }
+    ],
+    insights: [
+      { title: "En Çok Hangi Ürün", kind: "money", items: buildTopList(rows, row => row.product, row => row.amount) },
+      { title: "En Güçlü Aylar", kind: "money", items: buildTopList(rows, row => row.monthLabel, row => row.amount, 12) },
+      { title: "Kategori Dağılımı", kind: "money", items: buildTopList(rows, row => row.category, row => row.amount) }
+    ],
+    title: `${target} Satış Detayı`,
+    subtitle: `${state.year} • müşteri bazlı fatura listesi`,
+    note: rows.length ? "Bu liste kaynak satış detay satırlarından gelir." : "Bu müşteri için kaynak detay satırı bulunamadı.",
+    emptyMessage: "Bu müşteri için satış satırı bulunamadı."
+  };
+}
+
+function controlMonthComparisonRows(yearData) {
+  const detailRows = detailStore().salesRows.filter(row => String(row.year) === state.year && !isRentIncomeRow(row));
+  return Array.from({ length: 12 }, (_, idx) => {
+    const month = idx + 1;
+    const detailRevenue = detailRows.filter(row => row.month === month).reduce((sum, row) => sum + safe(row.amount), 0);
+    const summaryRevenue = safe(yearData.yonPlus.find(row => row.month === month)?.total?.ciro);
+    const categoryRevenue = (yearData.yonPlus.find(row => row.month === month)?.categories || []).reduce((sum, row) => sum + safe(row.ciro), 0);
+    return {
+      month: monthLabels[month],
+      detailRevenue,
+      summaryRevenue,
+      categoryRevenue,
+      detailDiff: detailRevenue - summaryRevenue,
+      categoryDiff: categoryRevenue - summaryRevenue
+    };
+  });
+}
+
+function buildControlDetailPayload(checkKey, checkLabel) {
+  const yearData = currentYearData();
+  const summary = yearConfidenceSummary(state.year);
+  const audit = buildDetailLayerAudit(state.year);
+  const rows = [];
+  const inferredKey = String(checkLabel || "").toLocaleLowerCase("tr-TR").includes("kategori") ? "categoryRevenue" : checkKey;
+  if (inferredKey === "detailRevenue" || inferredKey === "categoryRevenue") {
+    controlMonthComparisonRows(yearData).forEach(row => {
+      const diff = inferredKey === "detailRevenue" ? row.detailDiff : row.categoryDiff;
+      if (Math.abs(diff) >= 1) {
+        rows.push({
+          month: row.month,
+          left: inferredKey === "detailRevenue" ? row.detailRevenue : row.categoryRevenue,
+          right: row.summaryRevenue,
+          diff,
+          reason: inferredKey === "detailRevenue"
+            ? "Kaynak detay satır toplamı özet cirodan farklı."
+            : "Kategori kırılım toplamı YÖN_RAPOR toplam cirodan farklı."
+        });
+      }
+    });
+  } else if (checkKey === "blankCustomer" || checkKey === "blankInvoice" || checkKey === "orphan") {
+    audit.problemRows
+      .filter(row => {
+        if (checkKey === "blankCustomer") return !hasMeaningfulIdentityValue(row.customerName) && !hasMeaningfulIdentityValue(row.customerCode);
+        if (checkKey === "blankInvoice") return !hasMeaningfulIdentityValue(row.invoiceNo);
+        return !salesRowHasIdentity(row);
+      })
+      .slice(0, 500)
+      .forEach(row => rows.push({
+        date: row.date || monthLabels[row.month],
+        invoiceNo: row.invoiceNo || "—",
+        customerCode: row.customerCode || "—",
+        customerName: salesDisplayIdentityLabel(row),
+        product: row.product,
+        amount: safe(row.amount),
+        sourceFile: row.sourceFile,
+        reason: "Kaynak satış satırında müşteri/fatura kimliği tamamlanmalı."
+      }));
+  } else if (checkKey === "expenseRows") {
+    const expenseLeft = safe(yearData.expenseRows?.reduce((sum, row) => sum + safe(row?.[13]), 0));
+    rows.push({
+      source: "Gider satırları",
+      left: expenseLeft,
+      right: safe(yearData.overview?.totalExpense),
+      diff: expenseLeft - safe(yearData.overview?.totalExpense),
+      reason: "Gider satır toplamı ile özet toplam gider karşılaştırması."
+    });
+  } else {
+    rows.push({
+      source: checkLabel,
+      left: summary.detailRevenue,
+      right: safe(yearData.overview?.totalRevenue),
+      diff: summary.revenueDiff,
+      reason: "Bu kontrol statik kontrol dosyasından geliyor; fark kalmaması için kaynak özet ve detay aynı tabandan bağlanmalı."
+    });
+  }
+  const numericRows = rows.filter(row => "diff" in row);
+  return {
+    title: `${checkLabel} Detayı`,
+    subtitle: `${state.year} • kontrol fark izleme`,
+    stats: [
+      { label: "Farklı satır", value: num(rows.length) },
+      { label: "Toplam fark", value: money(numericRows.reduce((sum, row) => sum + safe(row.diff), 0)) },
+      { label: "Durum", value: rows.length ? "Düzeltilecek" : "Temiz" }
+    ],
+    insights: [
+      { title: "Fark Ayları", kind: "money", items: buildTopList(numericRows, row => row.month || row.source || "Kontrol", row => Math.abs(row.diff), 12) },
+      { title: "Kaynaklar", kind: "money", items: buildTopList(rows, row => row.sourceFile || row.source || row.reason, row => Math.abs(safe(row.amount || row.diff)), 8) }
+    ],
+    columns: rows[0]?.product ? [
+      { key: "date", label: "Tarih" },
+      { key: "invoiceNo", label: "Fatura" },
+      { key: "customerCode", label: "Cari" },
+      { key: "customerName", label: "Müşteri" },
+      { key: "product", label: "Ürün" },
+      { key: "amount", label: "Tutar", format: "money" },
+      { key: "sourceFile", label: "Kaynak" },
+      { key: "reason", label: "Sebep" }
+    ] : [
+      { key: "month", label: "Ay" },
+      { key: "source", label: "Kaynak" },
+      { key: "left", label: "Sol", format: "money" },
+      { key: "right", label: "Sağ", format: "money" },
+      { key: "diff", label: "Fark", format: "money" },
+      { key: "reason", label: "Sebep" }
+    ],
+    rows,
+    note: rows.length
+      ? "Fark olan satırlar burada listelenir. Düzeltme kaynak Excel/detay bağlantısı veya manuel korumalı hücre düzeltmesiyle yapılmalıdır."
+      : "Bu kontrolde fark bulunmadı.",
+    emptyMessage: "Bu kontrolde fark bulunmadı."
+  };
+}
+
 function expenseSummaryRows(yearData, month, itemName) {
   return (yearData.expenseRows || DATA.expenseRows || [])
     .filter(row => !itemName || sameLabel(row[0], itemName))
@@ -1948,8 +2133,13 @@ function renderCategoryProfit() {
 
 function renderCustomers() {
   q("#customerBody").innerHTML = visibleSalesCustomers(currentYearData().yonRapor.topCustomers).map(c => `
-    <tr><td>${c.rank}</td><td>${c.name}</td><td>${money(c.revenue)}</td><td>${pct(c.share)}</td></tr>
-  `).join("");
+    <tr class="clickable-row customer-row" data-customer="${esc(c.name)}" title="Satış faturalarını listele">
+      <td>${c.rank}</td>
+      <td><button class="link-cell customer-detail-btn" type="button" data-customer="${esc(c.name)}">${esc(c.name)}</button></td>
+      <td>${money(c.revenue)}</td>
+      <td>${pct(c.share)}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Raporlanabilir müşteri kaydı yok. Kimliksiz satırlar Kontrol ekranında izlenir.</td></tr>`;
 }
 
 function currentMasterMonthIndex() {
@@ -2875,32 +3065,37 @@ function renderControl() {
   const sourceFiles = (loadImports().files || []).filter(file => (file.years || []).includes(String(state.year)));
   const systemChecks = [
     {
+      key: "detailRevenue",
       label: "Detay ciro = Ozet toplam ciro",
       left: summary.detailRevenue,
       right: safe(currentYearData().overview?.totalRevenue)
     },
     {
+      key: "expenseRows",
       label: "Gider satirlari = Ozet toplam gider",
       left: safe(currentYearData().expenseRows?.reduce((sum, row) => sum + safe(row?.[13]), 0)),
       right: safe(currentYearData().overview?.totalExpense)
     },
     {
       label: "Boş müşteri satırı",
+      key: "blankCustomer",
       left: summary.blankCustomerCount,
       right: 0
     },
     {
       label: "Boş fatura satırı",
+      key: "blankInvoice",
       left: summary.blankInvoiceCount,
       right: 0
     },
     {
       label: "Tamamen kimliksiz satir",
+      key: "orphan",
       left: audit.combined.orphanCount,
       right: 0
     }
   ];
-  const renderedChecks = [...checks, ...systemChecks];
+  const renderedChecks = [...checks.map((check, index) => ({ ...check, key: check.key || `static-${index}` })), ...systemChecks];
   const problemRows = buildAuditProblemRows(state.year, 10);
   const problemBlock = audit.problemGroups.length
     ? `
@@ -2988,14 +3183,14 @@ function renderControl() {
   q("#controlList").innerHTML = sourceBlock + fileBlock + problemBlock + renderedChecks.map(c => {
     const diff = safe(c.left) - safe(c.right);
     const pass = Math.abs(diff) < 1;
-    return `<div class="control-item ${pass ? "pass" : "fail"}">
+    return `<button class="control-item ${pass ? "pass" : "fail"}" type="button" data-check="${esc(c.key)}" data-label="${esc(c.label)}" title="Fark detayını aç">
       <strong>${c.label}</strong>
       <div class="control-values">
         <span>Sol: ${money(c.left)}</span>
         <span>Sağ: ${money(c.right)}</span>
         <span>Fark: ${money(diff)}</span>
       </div>
-    </div>`;
+    </button>`;
   }).join("");
 }
 
@@ -3475,6 +3670,17 @@ function bind() {
   q("#detailFilter")?.addEventListener("input", e => {
     state.detailFilter = e.target.value;
     renderCellDetails();
+  });
+  q("#customerBody")?.addEventListener("click", e => {
+    const row = e.target.closest("[data-customer]");
+    if (!row) return;
+    const customer = row.dataset.customer || "";
+    openCellDetail("Müşteri Satış Detayı", `${state.year} • ${customer}`, buildCustomerDetailPayload(customer));
+  });
+  q("#controlList")?.addEventListener("click", e => {
+    const item = e.target.closest("[data-check]");
+    if (!item) return;
+    openCellDetail("Kontrol Fark Detayı", item.dataset.label || "Kontrol", buildControlDetailPayload(item.dataset.check, item.dataset.label || "Kontrol"));
   });
   const yearSelect = q("#yearSelect");
   yearSelect.innerHTML = Object.keys(DATA.years).map(y => `<option value="${y}">${y}</option>`).join("");
