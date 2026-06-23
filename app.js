@@ -6,7 +6,7 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "185820262006";
+const APP_VERSION_STAMP = "085220262306";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DATA = hydrateData(BASE_DATA);
@@ -1514,6 +1514,21 @@ function controlMonthComparisonRows(yearData) {
     const factoryDetailRevenue = detailRevenue - rentRevenue;
     const summaryRevenue = safe(yearData.yonPlus.find(row => row.month === month)?.total?.ciro);
     const categoryRevenue = (yearData.yonPlus.find(row => row.month === month)?.categories || []).reduce((sum, row) => sum + safe(row.ciro), 0);
+    const detailDiff = detailRevenue - summaryRevenue;
+    const status = Math.abs(detailDiff) < 1
+      ? "Temiz"
+      : !detailRevenue && summaryRevenue
+      ? "Detay ayı yok"
+      : detailDiff < 0
+      ? "Detay eksik"
+      : "Detay fazla";
+    const action = Math.abs(detailDiff) < 1
+      ? "İşlem yok"
+      : !detailRevenue && summaryRevenue
+      ? "Bu ayın kaynak satış detay Excel'i bağlanmalı."
+      : detailDiff < 0
+      ? "Özet toplamı oluşturan fakat detay listede olmayan fatura/satır bulunmalı."
+      : "Detay listede olup özet toplamda olmayan satır kontrol edilmeli.";
     return {
       month: monthLabels[month],
       detailRevenue,
@@ -1521,9 +1536,11 @@ function controlMonthComparisonRows(yearData) {
       factoryDetailRevenue,
       summaryRevenue,
       categoryRevenue,
-      detailDiff: detailRevenue - summaryRevenue,
+      detailDiff,
       factoryDetailDiff: factoryDetailRevenue - summaryRevenue,
-      categoryDiff: categoryRevenue - summaryRevenue
+      categoryDiff: categoryRevenue - summaryRevenue,
+      status,
+      action
     };
   });
 }
@@ -1546,6 +1563,8 @@ function buildControlDetailPayload(checkKey, checkLabel) {
           rentRevenue: row.rentRevenue,
           factoryDetailRevenue: row.factoryDetailRevenue,
           factoryDetailDiff: row.factoryDetailDiff,
+          status: row.status,
+          action: row.action,
           reason: inferredKey === "detailRevenue"
             ? (row.rentRevenue
               ? "NELL kira bu ay ayrıca gösterildi; ana fark yine detay/özet bağlantısından geliyor."
@@ -1593,6 +1612,8 @@ function buildControlDetailPayload(checkKey, checkLabel) {
   const numericRows = rows.filter(row => "diff" in row);
   const rentTotal = numericRows.reduce((sum, row) => sum + safe(row.rentRevenue), 0);
   const factoryDiffTotal = numericRows.reduce((sum, row) => sum + safe(row.factoryDetailDiff), 0);
+  const missingMonthRows = numericRows.filter(row => row.status === "Detay ayı yok");
+  const missingMonthDiff = missingMonthRows.reduce((sum, row) => sum + safe(row.diff), 0);
   return {
     title: `${checkLabel} Detayı`,
     subtitle: `${state.year} • kontrol fark izleme`,
@@ -1601,7 +1622,8 @@ function buildControlDetailPayload(checkKey, checkLabel) {
       { label: "Toplam fark", value: money(numericRows.reduce((sum, row) => sum + safe(row.diff), 0)) },
       ...(checkKey === "detailRevenue" ? [
         { label: "NELL kira toplamı", value: money(rentTotal) },
-        { label: "Fabrika farkı", value: money(factoryDiffTotal) }
+        { label: "Fabrika farkı", value: money(factoryDiffTotal) },
+        { label: "Detay ayı yok", value: `${num(missingMonthRows.length)} ay / ${money(missingMonthDiff)}` }
       ] : []),
       { label: "Durum", value: rows.length ? "Düzeltilecek" : "Temiz" }
     ],
@@ -1627,6 +1649,8 @@ function buildControlDetailPayload(checkKey, checkLabel) {
       { key: "factoryDetailRevenue", label: "Fabrika Detay", format: "money" },
       { key: "factoryDetailDiff", label: "Fabrika Fark", format: "money" },
       { key: "diff", label: "Fark", format: "money" },
+      { key: "status", label: "Durum" },
+      { key: "action", label: "Önerilen İşlem" },
       { key: "reason", label: "Sebep" }
     ],
     rows,
