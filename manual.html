@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manuel Veri Girişi | Woodlent Rapor Merkezi</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2b;
+      --panel-2: #182235;
+      --border: #25324a;
+      --text: #e8eefc;
+      --muted: #9fb0d0;
+      --accent: #4f8cff;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .shell { min-height: 100vh; display: grid; grid-template-columns: 280px 1fr; }
+    aside { border-right: 1px solid var(--border); background: #0f1728; padding: 22px; }
+    main { padding: 24px; }
+    .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
+    .badge { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), #7c3aed); font-weight: 800; }
+    h1, h2, h3 { margin: 0; }
+    .brand h1 { font-size: 20px; }
+    .brand p, .muted { color: var(--muted); margin: 5px 0 0; }
+    .nav a { display: block; color: var(--text); text-decoration: none; border: 1px solid var(--border); padding: 12px 14px; border-radius: 12px; margin-bottom: 10px; }
+    .nav a.active { background: rgba(79,140,255,.15); border-color: var(--accent); }
+    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+    .toolbar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    label { display: block; color: var(--muted); font-size: 13px; }
+    input, select, textarea {
+      width: 100%; margin-top: 6px; background: #0f1728; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 14px;
+    }
+    textarea { min-height: 40px; resize: vertical; }
+    button {
+      background: var(--accent); color: #fff; border: 0; border-radius: 11px; padding: 10px 14px; cursor: pointer; font-weight: 700;
+    }
+    button.secondary { background: #26344f; }
+    button.danger { background: var(--bad); }
+    button.good { background: var(--good); }
+    .button-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 10px; text-align: left; font-size: 14px; }
+    th { color: var(--muted); font-size: 12px; }
+    td input, td select { min-width: 120px; }
+    .table-wrap { overflow-x: auto; }
+    .kpi { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+    .kpi span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 7px; }
+    .kpi strong { font-size: 20px; }
+    .status { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #26344f; color: var(--text); }
+    .status.good { background: rgba(34,197,94,.15); color: #86efac; }
+    .status.warn { background: rgba(245,158,11,.15); color: #fcd34d; }
+    .status.bad { background: rgba(239,68,68,.15); color: #fca5a5; }
+    .notice { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel-2); margin-bottom: 16px; color: var(--muted); }
+    .alert-list { display: grid; gap: 8px; }
+    .alert { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: #0f1728; }
+    .alert.bad { border-color: rgba(239,68,68,.6); color: #fca5a5; }
+    .alert.warn { border-color: rgba(245,158,11,.6); color: #fcd34d; }
+    .alert.good { border-color: rgba(34,197,94,.6); color: #86efac; }
+    .file-input { max-width: 280px; }
+    @media (max-width: 980px) { .shell { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--border); } .grid, .two { grid-template-columns: 1fr; } .topbar { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <div class="badge">MV</div>
+        <div><h1>Manuel Veri Girişi</h1><p>Firma sahibi ekranı</p></div>
+      </div>
+      <div class="nav">
+        <a class="active" href="manual.html">Manuel Veri Girişi</a>
+        <a href="index.html">Rapor Merkezi</a>
+      </div>
+      <div class="notice">Bu ekran Woodlent / ALKAM maliyet raporlama yapısı içindir. Kategoriler: MDF, SUNTA, KAPLAMA, ÇARŞAF, DİĞER.</div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <h2>Temmuz Verilerini Elle Gir</h2>
+          <p class="muted">Kod bilmeden satış, maliyet, gider ve müşteri cirosu girilir; kontrol edilip JSON olarak dışa aktarılır.</p>
+        </div>
+        <div class="toolbar">
+          <label>Yıl<select id="year"><option>2025</option><option selected>2026</option></select></label>
+          <label>Ay<select id="month"></select></label>
+          <span id="status" class="status warn">Taslak</span>
+        </div>
+      </div>
+
+      <div id="saveNotice" class="notice">Veriler tarayıcıda saklanır. Sayfayı yenileyince kaybolmaz. Kalıcı sisteme almak için JSON dışa aktar.</div>
+
+      <div class="grid" id="summaryCards"></div>
+
+      <section class="card">
+        <h3>1. Satış / Kategori Performansı</h3>
+        <p class="muted">Kategori, ürün açıklaması, WKOD, adet, ciro ve maliyet gir. Kâr ve marj otomatik hesaplanır.</p>
+        <div class="table-wrap"><table><thead><tr><th>Kategori</th><th>Ürün / Açıklama</th><th>WKOD</th><th>Adet</th><th>Ciro</th><th>Maliyet</th><th>Kâr</th><th>Marj</th><th>Açıklama</th><th></th></tr></thead><tbody id="salesBody"></tbody></table></div>
+        <div class="button-row"><button id="addSale">Satır Ekle</button></div>
+      </section>
+
+      <section class="card">
+        <h3>2. Ürün Maliyet Girişi</h3>
+        <p class="muted">MDF ve SUNTA için kalınlık/boy mm olarak yazılır. Seçili ay maliyeti rapora temel olur.</p>
+        <div class="table-wrap"><table><thead><tr><th>WKOD</th><th>Ürün</th><th>Kalınlık/Boy</th><th>Kategori</th><th>PB</th><th>Base Price</th><th>Seçili Ay Maliyeti</th><th></th></tr></thead><tbody id="costBody"></tbody></table></div>
+        <div class="button-row"><button id="addCost">Satır Ekle</button></div>
+      </section>
+
+      <section class="card">
+        <h3>3. Gider Girişi</h3>
+        <p class="muted">Ayın giderlerini kalem kalem yaz. Net kâr hesabına otomatik girer.</p>
+        <div class="table-wrap"><table><thead><tr><th>Gider Kalemi</th><th>Tutar</th><th>Açıklama</th><th></th></tr></thead><tbody id="expenseBody"></tbody></table></div>
+        <div class="button-row"><button id="addExpense">Satır Ekle</button></div>
+      </section>
+
+      <section class="card">
+        <h3>4. Müşteri Ciro Girişi</h3>
+        <p class="muted">Top müşteri listesi ve pay hesapları için kullanılır.</p>
+        <div class="table-wrap"><table><thead><tr><th>Müşteri Ünvanı</th><th>Ciro</th><th>Açıklama</th><th></th></tr></thead><tbody id="customerBody"></tbody></table></div>
+        <div class="button-row"><button id="addCustomer">Satır Ekle</button></div>
+      </section>
+
+      <section class="card">
+        <h3>5. Kontrol ve Kaydet</h3>
+        <div id="alerts" class="alert-list"></div>
+        <div class="button-row">
+          <button id="checkBtn" class="secondary">Kontrol Et</button>
+          <button id="saveBtn" class="good">Kaydet</button>
+          <button id="approveBtn">Onayla ve Raporlara İşle</button>
+          <button id="exportBtn" class="secondary">JSON Dışa Aktar</button>
+          <label class="file-input"><input id="importFile" type="file" accept="application/json,.json" /></label>
+          <button id="clearBtn" class="danger">Bu Ayı Temizle</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const categories = ["MDF", "SUNTA", "KAPLAMA", "ÇARŞAF", "DİĞER"];
+    const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+    const defaultExpenses = ["Maaş","Kira","Elektrik","Doğalgaz","Nakliye","SGK","Bakım/Onarım","Diğer"];
+    const storeKey = "woodlent_manual_entries_v1";
+    const q = (s) => document.querySelector(s);
+    const money = (n) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(Number(n || 0));
+    const pct = (n) => Number.isFinite(n) ? `%${(n * 100).toFixed(1)}` : "—";
+    const val = (x) => Number(String(x || "0").replace(/\./g, "").replace(",", ".")) || 0;
+
+    let db = loadDb();
+    let state = { year: "2026", month: "7" };
+
+    function loadDb() { try { return JSON.parse(localStorage.getItem(storeKey)) || {}; } catch { return {}; } }
+    function saveDb() { localStorage.setItem(storeKey, JSON.stringify(db)); }
+    function key() { return `${state.year}-${state.month}`; }
+    function emptyEntry() {
+      return {
+        status: "Taslak",
+        sales: [], costs: [], expenses: defaultExpenses.map(name => ({ name, amount: 0, note: "" })), customers: []
+      };
+    }
+    function entry() { db[key()] = db[key()] || emptyEntry(); return db[key()]; }
+
+    function catSelect(value) { return `<select data-field="category">${categories.map(c => `<option ${c===value?"selected":""}>${c}</option>`).join("")}</select>`; }
+    function curSelect(value) { return `<select data-field="currency"><option ${value==="TRY"?"selected":""}>TRY</option><option ${value==="USD"?"selected":""}>USD</option><option ${value==="EUR"?"selected":""}>EUR</option></select>`; }
+
+    function render() {
+      q("#year").value = state.year;
+      q("#month").value = state.month;
+      const e = entry();
+      q("#status").textContent = e.status || "Taslak";
+      q("#status").className = "status " + (e.status === "Onaylandı" || e.status === "Raporlara İşlendi" ? "good" : e.status === "Kontrol Bekliyor" ? "warn" : "warn");
+      renderSales(e); renderCosts(e); renderExpenses(e); renderCustomers(e); renderSummary(e); renderAlerts(check(e, false));
+      saveDb();
+    }
+
+    function renderSales(e) {
+      q("#salesBody").innerHTML = e.sales.map((r,i) => {
+        const profit = val(r.revenue) - val(r.cost); const margin = val(r.revenue) ? profit / val(r.revenue) : NaN;
+        return `<tr data-list="sales" data-i="${i}"><td>${catSelect(r.category)}</td><td><input data-field="product" value="${r.product||""}"></td><td><input data-field="wkod" value="${r.wkod||""}"></td><td><input data-field="qty" value="${r.qty||""}"></td><td><input data-field="revenue" value="${r.revenue||""}"></td><td><input data-field="cost" value="${r.cost||""}"></td><td>${money(profit)}</td><td>${pct(margin)}</td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="sales" data-i="${i}">Sil</button></td></tr>`;
+      }).join("");
+    }
+
+    function renderCosts(e) {
+      q("#costBody").innerHTML = e.costs.map((r,i) => `<tr data-list="costs" data-i="${i}"><td><input data-field="wkod" value="${r.wkod||""}"></td><td><input data-field="product" value="${r.product||""}"></td><td><input data-field="dimension" value="${r.dimension||""}"></td><td>${catSelect(r.category)}</td><td>${curSelect(r.currency||"TRY")}</td><td><input data-field="basePrice" value="${r.basePrice||""}"></td><td><input data-field="monthCost" value="${r.monthCost||""}"></td><td><button class="danger" data-del="costs" data-i="${i}">Sil</button></td></tr>`).join("");
+    }
+
+    function renderExpenses(e) {
+      q("#expenseBody").innerHTML = e.expenses.map((r,i) => `<tr data-list="expenses" data-i="${i}"><td><input data-field="name" value="${r.name||""}"></td><td><input data-field="amount" value="${r.amount||""}"></td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="expenses" data-i="${i}">Sil</button></td></tr>`).join("");
+    }
+
+    function renderCustomers(e) {
+      q("#customerBody").innerHTML = e.customers.map((r,i) => `<tr data-list="customers" data-i="${i}"><td><input data-field="name" value="${r.name||""}"></td><td><input data-field="revenue" value="${r.revenue||""}"></td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="customers" data-i="${i}">Sil</button></td></tr>`).join("");
+    }
+
+    function totals(e) {
+      const revenue = e.sales.reduce((a,r)=>a+val(r.revenue),0);
+      const cost = e.sales.reduce((a,r)=>a+val(r.cost),0);
+      const gross = revenue - cost;
+      const expense = e.expenses.reduce((a,r)=>a+val(r.amount),0);
+      const net = gross - expense;
+      return { revenue, cost, gross, grossMargin: revenue ? gross/revenue : 0, expense, net, netMargin: revenue ? net/revenue : 0 };
+    }
+
+    function renderSummary(e) {
+      const t = totals(e);
+      q("#summaryCards").innerHTML = [["Toplam Ciro", money(t.revenue)], ["Toplam Maliyet", money(t.cost)], ["Brüt Kâr", money(t.gross)], ["Brüt Marj", pct(t.grossMargin)], ["Toplam Gider", money(t.expense)], ["Net Kâr", money(t.net)], ["Net Marj", pct(t.netMargin)], ["Veri Dönemi", `${state.year} ${months[Number(state.month)-1]}`]].map(x=>`<div class="kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join("");
+    }
+
+    function check(e, mark) {
+      const alerts = [];
+      const seen = new Set();
+      e.sales.forEach((r,i)=>{
+        if (!r.category) alerts.push(["bad", `Satış ${i+1}: kategori boş.`]);
+        if (!String(r.wkod||"").trim()) alerts.push(["bad", `Satış ${i+1}: WKOD boş.`]);
+        if (val(r.revenue) && !val(r.cost)) alerts.push(["bad", `Satış ${i+1}: cirosu var ama maliyeti yok.`]);
+        if (val(r.cost) && !val(r.revenue)) alerts.push(["warn", `Satış ${i+1}: maliyeti var ama cirosu yok.`]);
+        const profit = val(r.revenue)-val(r.cost); const margin = val(r.revenue) ? profit/val(r.revenue) : 0;
+        if (profit < 0) alerts.push(["bad", `Satış ${i+1}: negatif kâr.`]);
+        if (val(r.revenue) && margin < .08) alerts.push(["warn", `Satış ${i+1}: marj çok düşük (${pct(margin)}).`]);
+        const wk = String(r.wkod||"").trim().toUpperCase();
+        if (wk) { if (seen.has(wk)) alerts.push(["warn", `Mükerrer WKOD: ${wk}`]); seen.add(wk); }
+      });
+      if (!e.sales.length) alerts.push(["warn", "Satış satırı girilmemiş."]);
+      if (!e.expenses.some(r=>val(r.amount)>0)) alerts.push(["warn", "Bu ay için gider girilmemiş."]);
+      if (!e.costs.length) alerts.push(["warn", "Ürün maliyet satırı girilmemiş."]);
+      if (!e.customers.length) alerts.push(["warn", "Müşteri ciro satırı girilmemiş."]);
+      if (!alerts.length) alerts.push(["good", "Kontrol temiz. Onaylamaya hazır."]);
+      if (mark) { e.status = alerts.some(a=>a[0]==="bad") ? "Kontrol Bekliyor" : "Kontrol Bekliyor"; }
+      return alerts;
+    }
+
+    function renderAlerts(alerts) { q("#alerts").innerHTML = alerts.map(a=>`<div class="alert ${a[0]}">${a[1]}</div>`).join(""); }
+
+    function exportPayload() {
+      const e = entry(); const t = totals(e); const m = Number(state.month); const label = months[m-1];
+      const categoriesAgg = categories.map(c => {
+        const rows = e.sales.filter(r=>r.category===c);
+        const ciro = rows.reduce((a,r)=>a+val(r.revenue),0); const maliyet = rows.reduce((a,r)=>a+val(r.cost),0); const adet = rows.reduce((a,r)=>a+val(r.qty),0); const kar = ciro-maliyet;
+        return { name:c, adet, ciro, maliyet, kar, marj: ciro?kar/ciro:0 };
+      }).filter(r=>r.ciro||r.maliyet||r.adet);
+      return {
+        meta: { generatedAt: new Date().toISOString(), source: "manual.html", period: `${state.year}-${String(m).padStart(2,"0")}`, status: e.status },
+        manualEntry: { year: state.year, month: m, label, ...e, totals: t },
+        reportPatch: {
+          year: state.year,
+          yonPlusMonth: { month: m, label, total: { adet: e.sales.reduce((a,r)=>a+val(r.qty),0), ciro:t.revenue, maliyet:t.cost, kar:t.gross, marj:t.grossMargin }, categories: categoriesAgg },
+          overviewPatch: { totalRevenue:t.revenue, totalCost:t.cost, grossProfit:t.gross, grossMargin:t.grossMargin, totalExpense:t.expense, profitBeforeTax:t.net, netProfit:t.net, netMargin:t.netMargin },
+          topCustomers: e.customers.map((c,i)=>({ rank:i+1, name:c.name, revenue:val(c.revenue), share:t.revenue?val(c.revenue)/t.revenue:0 })),
+          costRows: e.costs.map(c=>({ WKOD:c.wkod, "ÜRÜN":c.product, "KALINLIK_BOY":c.dimension, "KATEGORİ":c.category, Currency:c.currency||"TRY", Base_Price:val(c.basePrice), selectedMonthCost:val(c.monthCost) })),
+          expenseRows: e.expenses.map(x=>[x.name, val(x.amount), x.note||""])
+        }
+      };
+    }
+
+    function downloadJson() {
+      const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `woodlent-manuel-${state.year}-${String(state.month).padStart(2,"0")}.json`; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    function init() {
+      q("#month").innerHTML = months.map((m,i)=>`<option value="${i+1}" ${i===6?"selected":""}>${m}</option>`).join("");
+      q("#year").onchange = e => { state.year = e.target.value; render(); };
+      q("#month").onchange = e => { state.month = e.target.value; render(); };
+      q("#addSale").onclick = () => { entry().sales.push({ category:"MDF", product:"", wkod:"", qty:"", revenue:"", cost:"", note:"" }); render(); };
+      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", product:"", dimension:"", category:"MDF", currency:"TRY", basePrice:"", monthCost:"" }); render(); };
+      q("#addExpense").onclick = () => { entry().expenses.push({ name:"Diğer", amount:"", note:"" }); render(); };
+      q("#addCustomer").onclick = () => { entry().customers.push({ name:"", revenue:"", note:"" }); render(); };
+      document.body.addEventListener("input", onEdit); document.body.addEventListener("change", onEdit);
+      document.body.addEventListener("click", e => { const del = e.target.dataset.del; if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); } });
+      q("#checkBtn").onclick = () => { const e = entry(); renderAlerts(check(e, true)); saveDb(); render(); };
+      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Kaydedildi. Veriler bu tarayıcıda saklandı."; };
+      q("#approveBtn").onclick = () => { entry().status = "Raporlara İşlendi"; saveDb(); render(); };
+      q("#exportBtn").onclick = downloadJson;
+      q("#clearBtn").onclick = () => { if (confirm("Bu ayın manuel verisi silinsin mi?")) { delete db[key()]; saveDb(); render(); } };
+      q("#importFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const txt = await f.text(); const data = JSON.parse(txt); const manual = data.manualEntry || data; state.year = String(manual.year || state.year); state.month = String(manual.month || state.month); db[key()] = { status: manual.status || "Taslak", sales: manual.sales || [], costs: manual.costs || [], expenses: manual.expenses || [], customers: manual.customers || [] }; saveDb(); render(); };
+      render();
+    }
+
+    function onEdit(ev) {
+      const tr = ev.target.closest("tr[data-list]"); if (!tr || !ev.target.dataset.field) return;
+      const e = entry(); const list = tr.dataset.list; const i = Number(tr.dataset.i); const field = ev.target.dataset.field;
+      e[list][i][field] = ev.target.value; e.status = "Taslak"; saveDb(); renderSummary(e); renderAlerts(check(e, false));
+    }
+    init();
+  </script>
+</body>
+</html>
