@@ -84,14 +84,14 @@
         <a class="active" href="manual.html">Manuel Veri Girişi</a>
         <a href="index.html">Rapor Merkezi</a>
       </div>
-      <div class="notice">Bu ekran Woodlent / ALKAM maliyet raporlama yapısı içindir. Kategoriler: MDF, SUNTA, KAPLAMA, ÇARŞAF, DİĞER.</div>
+      <div class="notice">Bu ekran Woodlent / ALKAM maliyet raporlama yapısı içindir. Onaylanan veriler doğrudan ana rapor sistemine işlenir.</div>
     </aside>
 
     <main>
       <div class="topbar">
         <div>
-          <h2>Temmuz Verilerini Elle Gir</h2>
-          <p class="muted">Kod bilmeden satış, maliyet, gider ve müşteri cirosu girilir; kontrol edilip JSON olarak dışa aktarılır.</p>
+          <h2 id="periodTitle">Verileri Elle Gir</h2>
+          <p class="muted">Kod bilmeden satış, maliyet ve gider girilir; kontrol edilip "Onayla" ile ana rapora işlenir.</p>
         </div>
         <div class="toolbar">
           <label>Yıl<select id="year"><option>2025</option><option selected>2026</option></select></label>
@@ -100,7 +100,7 @@
         </div>
       </div>
 
-      <div id="saveNotice" class="notice">Veriler tarayıcıda saklanır. Sayfayı yenileyince kaybolmaz. Kalıcı sisteme almak için JSON dışa aktar.</div>
+      <div id="saveNotice" class="notice">Taslak veriler tarayıcıda saklanır. "Onayla ve Raporlara İşle" dediğinde veriler ana rapor sistemine kalıcı olarak işlenir.</div>
 
       <div class="grid" id="summaryCards"></div>
 
@@ -127,7 +127,7 @@
 
       <section class="card">
         <h3>4. Müşteri Ciro Girişi</h3>
-        <p class="muted">Top müşteri listesi ve pay hesapları için kullanılır.</p>
+        <p class="muted">Bilgi amaçlıdır, sadece bu tarayıcıda saklanır. Ana rapordaki müşteri listesi satış detay verilerinden otomatik hesaplanır.</p>
         <div class="table-wrap"><table><thead><tr><th>Müşteri Ünvanı</th><th>Ciro</th><th>Açıklama</th><th></th></tr></thead><tbody id="customerBody"></tbody></table></div>
         <div class="button-row"><button id="addCustomer">Satır Ekle</button></div>
       </section>
@@ -139,7 +139,7 @@
           <button id="checkBtn" class="secondary">Kontrol Et</button>
           <button id="saveBtn" class="good">Kaydet</button>
           <button id="approveBtn">Onayla ve Raporlara İşle</button>
-          <button id="exportBtn" class="secondary">JSON Dışa Aktar</button>
+          <button id="exportBtn" class="secondary">Yedek JSON İndir</button>
           <label class="file-input"><input id="importFile" type="file" accept="application/json,.json" /></label>
           <button id="clearBtn" class="danger">Bu Ayı Temizle</button>
         </div>
@@ -147,39 +147,62 @@
     </main>
   </div>
 
+  <script src="report-data.js"></script>
+  <script src="app.js"></script>
   <script>
-    const categories = ["MDF", "SUNTA", "KAPLAMA", "ÇARŞAF", "DİĞER"];
+    // DATA, BASE_DATA, hydrateData, persistManualIncomeEdit, persistExpenseRowEdit,
+    // persistCostRowEdit and EDIT_PASSWORD all come from app.js above — this page
+    // writes into the exact same live data model the main dashboard reads from.
     const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
-    const defaultExpenses = ["Maaş","Kira","Elektrik","Doğalgaz","Nakliye","SGK","Bakım/Onarım","Diğer"];
     const storeKey = "woodlent_manual_entries_v1";
-    const q = (s) => document.querySelector(s);
-    const money = (n) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(Number(n || 0));
-    const pct = (n) => Number.isFinite(n) ? `%${(n * 100).toFixed(1)}` : "—";
+    const fmtMoney = (n) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(Number(n || 0));
+    const fmtPct = (n) => Number.isFinite(n) ? `%${(n * 100).toFixed(1)}` : "—";
     const val = (x) => Number(String(x || "0").replace(/\./g, "").replace(",", ".")) || 0;
 
+    function yearsAvailable() { return Object.keys(DATA.years || {}).sort(); }
+    function categoriesForYear(year) {
+      const yd = DATA.years[String(year)];
+      const set = new Set();
+      (yd?.yonPlus || []).forEach(m => (m.categories || []).forEach(c => set.add(c.name)));
+      return [...set];
+    }
+    function expenseLabelsForYear(year) {
+      const yd = DATA.years[String(year)];
+      return (yd?.expenseRows || []).map(r => r[0]);
+    }
+
+    const now = new Date();
     let db = loadDb();
-    let state = { year: "2026", month: "7" };
+    let mstate = {
+      year: DATA.years[String(now.getFullYear())] ? String(now.getFullYear()) : yearsAvailable().slice(-1)[0],
+      month: String(now.getMonth() + 1)
+    };
 
     function loadDb() { try { return JSON.parse(localStorage.getItem(storeKey)) || {}; } catch { return {}; } }
     function saveDb() { localStorage.setItem(storeKey, JSON.stringify(db)); }
-    function key() { return `${state.year}-${state.month}`; }
+    function key() { return `${mstate.year}-${mstate.month}`; }
     function emptyEntry() {
-      return {
-        status: "Taslak",
-        sales: [], costs: [], expenses: defaultExpenses.map(name => ({ name, amount: 0, note: "" })), customers: []
-      };
+      return { status: "Taslak", sales: [], costs: [], expenses: [], customers: [] };
     }
     function entry() { db[key()] = db[key()] || emptyEntry(); return db[key()]; }
 
-    function catSelect(value) { return `<select data-field="category">${categories.map(c => `<option ${c===value?"selected":""}>${c}</option>`).join("")}</select>`; }
+    function catSelect(value) {
+      const cats = categoriesForYear(mstate.year);
+      return `<select data-field="category">${cats.map(c => `<option ${c===value?"selected":""}>${c}</option>`).join("")}</select>`;
+    }
+    function expenseSelect(value) {
+      const labels = expenseLabelsForYear(mstate.year);
+      return `<select data-field="name">${labels.map(l => `<option ${l===value?"selected":""}>${l}</option>`).join("")}</select>`;
+    }
     function curSelect(value) { return `<select data-field="currency"><option ${value==="TRY"?"selected":""}>TRY</option><option ${value==="USD"?"selected":""}>USD</option><option ${value==="EUR"?"selected":""}>EUR</option></select>`; }
 
     function render() {
-      q("#year").value = state.year;
-      q("#month").value = state.month;
+      q("#periodTitle").textContent = `${months[Number(mstate.month)-1] || ""} ${mstate.year} Verilerini Elle Gir`;
+      q("#year").value = mstate.year;
+      q("#month").value = mstate.month;
       const e = entry();
       q("#status").textContent = e.status || "Taslak";
-      q("#status").className = "status " + (e.status === "Onaylandı" || e.status === "Raporlara İşlendi" ? "good" : e.status === "Kontrol Bekliyor" ? "warn" : "warn");
+      q("#status").className = "status " + (e.status === "Raporlara İşlendi" ? "good" : "warn");
       renderSales(e); renderCosts(e); renderExpenses(e); renderCustomers(e); renderSummary(e); renderAlerts(check(e, false));
       saveDb();
     }
@@ -187,7 +210,7 @@
     function renderSales(e) {
       q("#salesBody").innerHTML = e.sales.map((r,i) => {
         const profit = val(r.revenue) - val(r.cost); const margin = val(r.revenue) ? profit / val(r.revenue) : NaN;
-        return `<tr data-list="sales" data-i="${i}"><td>${catSelect(r.category)}</td><td><input data-field="product" value="${r.product||""}"></td><td><input data-field="wkod" value="${r.wkod||""}"></td><td><input data-field="qty" value="${r.qty||""}"></td><td><input data-field="revenue" value="${r.revenue||""}"></td><td><input data-field="cost" value="${r.cost||""}"></td><td>${money(profit)}</td><td>${pct(margin)}</td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="sales" data-i="${i}">Sil</button></td></tr>`;
+        return `<tr data-list="sales" data-i="${i}"><td>${catSelect(r.category)}</td><td><input data-field="product" value="${r.product||""}"></td><td><input data-field="wkod" value="${r.wkod||""}"></td><td><input data-field="qty" value="${r.qty||""}"></td><td><input data-field="revenue" value="${r.revenue||""}"></td><td><input data-field="cost" value="${r.cost||""}"></td><td>${fmtMoney(profit)}</td><td>${fmtPct(margin)}</td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="sales" data-i="${i}">Sil</button></td></tr>`;
       }).join("");
     }
 
@@ -196,7 +219,7 @@
     }
 
     function renderExpenses(e) {
-      q("#expenseBody").innerHTML = e.expenses.map((r,i) => `<tr data-list="expenses" data-i="${i}"><td><input data-field="name" value="${r.name||""}"></td><td><input data-field="amount" value="${r.amount||""}"></td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="expenses" data-i="${i}">Sil</button></td></tr>`).join("");
+      q("#expenseBody").innerHTML = e.expenses.map((r,i) => `<tr data-list="expenses" data-i="${i}"><td>${expenseSelect(r.name)}</td><td><input data-field="amount" value="${r.amount||""}"></td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="expenses" data-i="${i}">Sil</button></td></tr>`).join("");
     }
 
     function renderCustomers(e) {
@@ -214,7 +237,7 @@
 
     function renderSummary(e) {
       const t = totals(e);
-      q("#summaryCards").innerHTML = [["Toplam Ciro", money(t.revenue)], ["Toplam Maliyet", money(t.cost)], ["Brüt Kâr", money(t.gross)], ["Brüt Marj", pct(t.grossMargin)], ["Toplam Gider", money(t.expense)], ["Net Kâr", money(t.net)], ["Net Marj", pct(t.netMargin)], ["Veri Dönemi", `${state.year} ${months[Number(state.month)-1]}`]].map(x=>`<div class="kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join("");
+      q("#summaryCards").innerHTML = [["Toplam Ciro", fmtMoney(t.revenue)], ["Toplam Maliyet", fmtMoney(t.cost)], ["Brüt Kâr", fmtMoney(t.gross)], ["Brüt Marj", fmtPct(t.grossMargin)], ["Toplam Gider", fmtMoney(t.expense)], ["Net Kâr", fmtMoney(t.net)], ["Net Marj", fmtPct(t.netMargin)], ["Veri Dönemi", `${mstate.year} ${months[Number(mstate.month)-1]}`]].map(x=>`<div class="kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join("");
     }
 
     function check(e, mark) {
@@ -227,7 +250,7 @@
         if (val(r.cost) && !val(r.revenue)) alerts.push(["warn", `Satış ${i+1}: maliyeti var ama cirosu yok.`]);
         const profit = val(r.revenue)-val(r.cost); const margin = val(r.revenue) ? profit/val(r.revenue) : 0;
         if (profit < 0) alerts.push(["bad", `Satış ${i+1}: negatif kâr.`]);
-        if (val(r.revenue) && margin < .08) alerts.push(["warn", `Satış ${i+1}: marj çok düşük (${pct(margin)}).`]);
+        if (val(r.revenue) && margin < .08) alerts.push(["warn", `Satış ${i+1}: marj çok düşük (${fmtPct(margin)}).`]);
         const wk = String(r.wkod||"").trim().toUpperCase();
         if (wk) { if (seen.has(wk)) alerts.push(["warn", `Mükerrer WKOD: ${wk}`]); seen.add(wk); }
       });
@@ -243,17 +266,17 @@
     function renderAlerts(alerts) { q("#alerts").innerHTML = alerts.map(a=>`<div class="alert ${a[0]}">${a[1]}</div>`).join(""); }
 
     function exportPayload() {
-      const e = entry(); const t = totals(e); const m = Number(state.month); const label = months[m-1];
+      const e = entry(); const t = totals(e); const m = Number(mstate.month); const label = months[m-1];
       const categoriesAgg = categories.map(c => {
         const rows = e.sales.filter(r=>r.category===c);
         const ciro = rows.reduce((a,r)=>a+val(r.revenue),0); const maliyet = rows.reduce((a,r)=>a+val(r.cost),0); const adet = rows.reduce((a,r)=>a+val(r.qty),0); const kar = ciro-maliyet;
         return { name:c, adet, ciro, maliyet, kar, marj: ciro?kar/ciro:0 };
       }).filter(r=>r.ciro||r.maliyet||r.adet);
       return {
-        meta: { generatedAt: new Date().toISOString(), source: "manual.html", period: `${state.year}-${String(m).padStart(2,"0")}`, status: e.status },
-        manualEntry: { year: state.year, month: m, label, ...e, totals: t },
+        meta: { generatedAt: new Date().toISOString(), source: "manual.html", period: `${mstate.year}-${String(m).padStart(2,"0")}`, status: e.status },
+        manualEntry: { year: mstate.year, month: m, label, ...e, totals: t },
         reportPatch: {
-          year: state.year,
+          year: mstate.year,
           yonPlusMonth: { month: m, label, total: { adet: e.sales.reduce((a,r)=>a+val(r.qty),0), ciro:t.revenue, maliyet:t.cost, kar:t.gross, marj:t.grossMargin }, categories: categoriesAgg },
           overviewPatch: { totalRevenue:t.revenue, totalCost:t.cost, grossProfit:t.gross, grossMargin:t.grossMargin, totalExpense:t.expense, profitBeforeTax:t.net, netProfit:t.net, netMargin:t.netMargin },
           topCustomers: e.customers.map((c,i)=>({ rank:i+1, name:c.name, revenue:val(c.revenue), share:t.revenue?val(c.revenue)/t.revenue:0 })),
@@ -263,27 +286,83 @@
       };
     }
 
+    function commitToReports() {
+      const password = prompt("Onaylamak için şifre girin:");
+      if (password !== EDIT_PASSWORD) { alert("Hatalı şifre. İşlem iptal edildi."); return false; }
+
+      const e = entry();
+      const year = mstate.year;
+      const month = Number(mstate.month);
+
+      // 1) Satış: kategori bazında ciro / adet / maliyet toplanıp yazılır
+      categoriesForYear(year).forEach(cat => {
+        const rows = e.sales.filter(r => r.category === cat);
+        if (!rows.length) return;
+        const ciro = rows.reduce((a, r) => a + val(r.revenue), 0);
+        const adet = rows.reduce((a, r) => a + val(r.qty), 0);
+        const maliyet = rows.reduce((a, r) => a + val(r.cost), 0);
+        persistManualIncomeEdit(year, "sales", cat, month, ciro);
+        persistManualIncomeEdit(year, "qty", cat, month, adet);
+        persistManualIncomeEdit(year, "cost", cat, month, maliyet);
+      });
+
+      // 2) Giderler: seçilen ay için ilgili gider satırı güncellenir, diğer aylar korunur
+      e.expenses.forEach(x => {
+        if (!x.name) return;
+        const existingRow = (DATA.years[String(year)]?.expenseRows || []).find(r => r[0] === x.name);
+        if (!existingRow) return;
+        const newRow = existingRow.slice();
+        newRow[month] = val(x.amount);
+        persistExpenseRowEdit(year, newRow);
+      });
+
+      // 3) Ürün maliyeti (WKOD bazlı): sadece 2025/2026 destekleniyor (sistemin kendi yapısı gereği)
+      if (["2025", "2026"].includes(String(year))) {
+        e.costs.forEach(c => {
+          const wkod = String(c.wkod || "").trim();
+          if (!wkod) return;
+          const row = (DATA.costRows || []).find(r => String(r.WKOD) === wkod);
+          if (!row) return;
+          const target = String(year) === "2025" ? row.months25 : row.months26;
+          if (!Array.isArray(target)) return;
+          const monthValues = target.slice();
+          monthValues[month - 1] = val(c.monthCost);
+          persistCostRowEdit(year, wkod, monthValues);
+        });
+      }
+
+      // Bu oturumda art arda kayıt yapılabilsin diye bellekteki veriyi tazele
+      DATA = hydrateData(BASE_DATA);
+
+      e.status = "Raporlara İşlendi";
+      saveDb();
+      render();
+      alert("Veriler ana rapor sistemine işlendi. Rapor Merkezi'nde (index.html) görüntüleyebilirsin.");
+      return true;
+    }
+
     function downloadJson() {
       const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: "application/json" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `woodlent-manuel-${state.year}-${String(state.month).padStart(2,"0")}.json`; a.click(); URL.revokeObjectURL(a.href);
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `woodlent-manuel-${mstate.year}-${String(mstate.month).padStart(2,"0")}.json`; a.click(); URL.revokeObjectURL(a.href);
     }
 
     function init() {
-      q("#month").innerHTML = months.map((m,i)=>`<option value="${i+1}" ${i===6?"selected":""}>${m}</option>`).join("");
-      q("#year").onchange = e => { state.year = e.target.value; render(); };
-      q("#month").onchange = e => { state.month = e.target.value; render(); };
-      q("#addSale").onclick = () => { entry().sales.push({ category:"MDF", product:"", wkod:"", qty:"", revenue:"", cost:"", note:"" }); render(); };
-      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", product:"", dimension:"", category:"MDF", currency:"TRY", basePrice:"", monthCost:"" }); render(); };
-      q("#addExpense").onclick = () => { entry().expenses.push({ name:"Diğer", amount:"", note:"" }); render(); };
+      q("#year").innerHTML = yearsAvailable().map(y => `<option ${y===mstate.year?"selected":""}>${y}</option>`).join("");
+      q("#month").innerHTML = months.map((m,i)=>`<option value="${i+1}" ${String(i+1)===mstate.month?"selected":""}>${m}</option>`).join("");
+      q("#year").onchange = e => { mstate.year = e.target.value; render(); };
+      q("#month").onchange = e => { mstate.month = e.target.value; render(); };
+      q("#addSale").onclick = () => { entry().sales.push({ category: categoriesForYear(mstate.year)[0] || "", product:"", wkod:"", qty:"", revenue:"", cost:"", note:"" }); render(); };
+      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", product:"", dimension:"", category: categoriesForYear(mstate.year)[0] || "", currency:"TRY", basePrice:"", monthCost:"" }); render(); };
+      q("#addExpense").onclick = () => { entry().expenses.push({ name: expenseLabelsForYear(mstate.year)[0] || "", amount:"", note:"" }); render(); };
       q("#addCustomer").onclick = () => { entry().customers.push({ name:"", revenue:"", note:"" }); render(); };
       document.body.addEventListener("input", onEdit); document.body.addEventListener("change", onEdit);
       document.body.addEventListener("click", e => { const del = e.target.dataset.del; if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); } });
       q("#checkBtn").onclick = () => { const e = entry(); renderAlerts(check(e, true)); saveDb(); render(); };
-      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Kaydedildi. Veriler bu tarayıcıda saklandı."; };
-      q("#approveBtn").onclick = () => { entry().status = "Raporlara İşlendi"; saveDb(); render(); };
+      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Taslak kaydedildi (bu tarayıcıda). Henüz ana rapora işlenmedi."; };
+      q("#approveBtn").onclick = commitToReports;
       q("#exportBtn").onclick = downloadJson;
-      q("#clearBtn").onclick = () => { if (confirm("Bu ayın manuel verisi silinsin mi?")) { delete db[key()]; saveDb(); render(); } };
-      q("#importFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const txt = await f.text(); const data = JSON.parse(txt); const manual = data.manualEntry || data; state.year = String(manual.year || state.year); state.month = String(manual.month || state.month); db[key()] = { status: manual.status || "Taslak", sales: manual.sales || [], costs: manual.costs || [], expenses: manual.expenses || [], customers: manual.customers || [] }; saveDb(); render(); };
+      q("#clearBtn").onclick = () => { if (confirm("Bu ayın taslağı silinsin mi? (Zaten raporlara işlenmiş veriler bundan etkilenmez.)")) { delete db[key()]; saveDb(); render(); } };
+      q("#importFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const txt = await f.text(); const data = JSON.parse(txt); const manual = data.manualEntry || data; mstate.year = String(manual.year || mstate.year); mstate.month = String(manual.month || mstate.month); db[key()] = { status: manual.status || "Taslak", sales: manual.sales || [], costs: manual.costs || [], expenses: manual.expenses || [], customers: manual.customers || [] }; saveDb(); render(); };
       render();
     }
 

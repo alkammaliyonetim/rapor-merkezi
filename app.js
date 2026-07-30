@@ -675,16 +675,30 @@ function applyManualEditsToData(data, edits) {
   if (!data?.years || !edits || typeof edits !== "object") return;
   Object.entries(edits).forEach(([year, yearEdits]) => {
     const yearData = data.years[year];
-    if (!yearData?.yonPlus || !yearEdits || typeof yearEdits !== "object") return;
-    ["sales", "qty"].forEach(kind => {
+    if (!yearData || !yearEdits || typeof yearEdits !== "object") return;
+    yearData.yonPlus = yearData.yonPlus || [];
+    ["sales", "qty", "cost"].forEach(kind => {
       Object.entries(yearEdits[kind] || {}).forEach(([categoryName, monthValues]) => {
         if (!Array.isArray(monthValues)) return;
         for (let idx = 0; idx < 12; idx += 1) {
-          const month = (yearData.yonPlus || []).find(entry => entry.month === idx + 1);
-          const category = (month?.categories || []).find(entry => entry.name === categoryName);
-          if (!category) continue;
-          if (kind === "sales") category.ciro = safe(monthValues[idx]);
-          if (kind === "qty") category.adet = safe(monthValues[idx]);
+          const value = monthValues[idx];
+          if (value === null || value === undefined || value === "") continue;
+          let month = yearData.yonPlus.find(entry => entry.month === idx + 1);
+          if (!month) {
+            const monthNamesTR = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+            month = { month: idx + 1, label: `${monthNamesTR[idx] || ""} ${year}`.trim(), categories: [], total: { adet: 0, ciro: 0, maliyet: 0, kar: 0, marj: 0 } };
+            yearData.yonPlus.push(month);
+            yearData.yonPlus.sort((a, b) => a.month - b.month);
+          }
+          let category = (month.categories || []).find(entry => entry.name === categoryName);
+          if (!category) {
+            category = { name: categoryName, adet: 0, ciro: 0, maliyet: 0, kar: 0, marj: 0 };
+            month.categories = month.categories || [];
+            month.categories.push(category);
+          }
+          if (kind === "sales") category.ciro = safe(value);
+          if (kind === "qty") category.adet = safe(value);
+          if (kind === "cost") category.maliyet = safe(value);
         }
       });
     });
@@ -747,7 +761,7 @@ function persistExpenseRowEdit(year, row) {
 }
 
 function persistManualIncomeEdit(year, kind, itemName, month, value) {
-  if (!["sales", "qty"].includes(kind) || !itemName || !month) return;
+  if (!["sales", "qty", "cost"].includes(kind) || !itemName || !month) return;
   const edits = loadManualEdits();
   const yearKey = String(year);
   edits[yearKey] = edits[yearKey] || {};
@@ -4217,6 +4231,12 @@ function populateMonthSelect() {
   monthSelect.value = state.month;
 }
 
-populateMonthSelect();
-bind();
-render();
+try {
+  populateMonthSelect();
+  bind();
+  render();
+} catch (error) {
+  if (typeof console !== "undefined") {
+    console.warn("Dashboard bootstrap skipped (this page does not have the main dashboard DOM):", error.message);
+  }
+}
