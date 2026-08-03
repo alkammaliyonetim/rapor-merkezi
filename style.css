@@ -144,6 +144,7 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .overview-bar-pills{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .overview-bar-sub{align-items:flex-start;border-top:1px solid rgba(157,178,212,.14);padding-top:10px}
 .overview-bar-meta,.overview-bar-alerts{display:flex;flex-wrap:wrap;gap:8px}
+.overview-bar-alerts{justify-content:flex-end}
 .overview-bar-meta span{font-size:12px;color:var(--muted);padding:4px 0}
 .overview-strip{grid-column:1/-1;display:grid;gap:12px;padding:14px 16px;border-radius:16px;background:linear-gradient(180deg,#0f1d35,#12203a)}
 .overview-strip.ready{border-color:rgba(34,197,94,.32)}
@@ -221,6 +222,14 @@ button.overview-foot-pill:hover{filter:brightness(1.14);transform:translateY(-1p
 .expense-cell-edited::after{content:"";display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:999px;background:#f59e0b;vertical-align:middle}
 .expense-undo{margin-left:6px;border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.18);color:#fde68a;border-radius:999px;padding:2px 6px;font-size:10px;font-weight:800;line-height:1;cursor:pointer}
 .expense-undo:hover{background:rgba(245,158,11,.30);color:#fff}
+.detail-delete-btn{border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.14);color:#fecaca;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;line-height:1;cursor:pointer}
+.detail-delete-btn:hover{background:rgba(239,68,68,.28);color:#fff}
+.audit-log-row{border-bottom:1px solid rgba(157,178,212,.14);padding:8px 0;display:flex;flex-direction:column;gap:4px}
+.audit-log-row:last-child{border-bottom:0}
+.audit-log-when{color:var(--muted);font-size:11px;margin-left:8px}
+.audit-log-meta{color:var(--muted);font-size:11px}
+.audit-revert-btn{align-self:flex-start;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.16);color:#fde68a;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer}
+.audit-revert-btn:hover{background:rgba(245,158,11,.3);color:#fff}
 .product-cost-wrap{max-height:calc(100vh - 330px)}
 .cost-breakdown-table th,.cost-breakdown-table td,.expense-table th,.expense-table td{font-size:12px}
 .expense-table td:not(:first-child){text-align:right}
@@ -362,8 +371,8 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
 .link-cell:hover{text-decoration:underline;color:#fff}
 @media (max-width:1200px){
   .cards-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .overview-bar-row{flex-direction:column;align-items:flex-start}
-  .overview-bar-pills{justify-content:flex-start}
+  .overview-bar-row{flex-direction:column;align-items:stretch}
+  .overview-bar-pills{justify-content:flex-end}
   .overview-strip-top,.overview-strip-foot{flex-direction:column}
   .overview-strip-meta{justify-content:flex-start}
   .trust-status-headline{flex-direction:column}

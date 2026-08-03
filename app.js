@@ -13,7 +13,11 @@ let DATA = hydrateData(BASE_DATA);
 let DETAIL_CACHE = null;
 let lastExpenseEdit = null;
 let lastCostEdit = null;
-const state = { year: "2025", month: "all", view: "overview", masterPage: 1, masterPageSize: 50, masterSearch: "", masterCategory: "Tümü", masterMode: "summary", costSearch: "", costCurrency: "Tümü", costCategory: "Tümü", costSortKey: "yearTotal", costSortDir: "desc", escalationSortKey: "deltaPct", escalationSortDir: "desc", productCostSortKey: "totalCost", productCostSortDir: "desc", expenseSortKey: "total", expenseSortDir: "desc", importLog: [], detailPayload: null, detailFilter: "" };
+function latestAvailableYear() {
+  const years = Object.keys(DATA.years || {}).sort((a, b) => Number(a) - Number(b));
+  return years.length ? years[years.length - 1] : "2025";
+}
+const state = { year: latestAvailableYear(), month: "all", view: "overview", masterPage: 1, masterPageSize: 50, masterSearch: "", masterCategory: "Tümü", masterMode: "summary", costSearch: "", costCurrency: "Tümü", costCategory: "Tümü", costSortKey: "yearTotal", costSortDir: "desc", escalationSortKey: "deltaPct", escalationSortDir: "desc", productCostSortKey: "totalCost", productCostSortDir: "desc", expenseSortKey: "total", expenseSortDir: "desc", importLog: [], detailPayload: null, detailFilter: "" };
 
 const monthLabels = {
   1:"Ocak",2:"Şubat",3:"Mart",4:"Nisan",5:"Mayıs",6:"Haziran",
@@ -151,6 +155,75 @@ function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function syncStateToServer(serverKey, value) {
+  fetch("/api/state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: serverKey, value })
+  }).catch(error => {
+    state.importLog.unshift(`Sunucu senkron hatasi (${serverKey}): ${error.message}`);
+  });
+}
+
+function logAudit({ action_type, entity, year = state.year, month = null, old_value = null, new_value = null, note = null }) {
+  fetch("/api/audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action_type, entity, year, month, old_value, new_value, note })
+  }).catch(error => {
+    state.importLog.unshift(`Islem gunlugu yazilamadi: ${error.message}`);
+  });
+}
+
+async function bootstrapServerState() {
+  const localKeyByServerKey = {
+    imports: IMPORT_STORAGE_KEY,
+    annualInputs: ANNUAL_INPUT_STORAGE_KEY,
+    expenseEdits: EXPENSE_EDIT_STORAGE_KEY,
+    costEdits: COST_EDIT_STORAGE_KEY,
+    manualEdits: MANUAL_EDIT_STORAGE_KEY
+  };
+  const localLoaders = {
+    imports: loadImports,
+    annualInputs: loadAnnualInputs,
+    expenseEdits: loadExpenseEdits,
+    costEdits: loadCostEdits,
+    manualEdits: loadManualEdits
+  };
+  const isFilled = value => value && typeof value === "object" && Object.keys(value).length > 0;
+  try {
+    const res = await fetch("/api/state");
+    if (!res.ok) return false;
+    const server = await res.json();
+    const hasServerData = Object.keys(localKeyByServerKey).some(key => isFilled(server[key]));
+    if (hasServerData) {
+      let changed = false;
+      Object.entries(localKeyByServerKey).forEach(([serverKey, storageKey]) => {
+        if (isFilled(server[serverKey])) {
+          localStorage.setItem(storageKey, JSON.stringify(server[serverKey]));
+          changed = true;
+        }
+      });
+      return changed;
+    }
+    const localSnapshot = {};
+    Object.entries(localLoaders).forEach(([serverKey, loader]) => { localSnapshot[serverKey] = loader(); });
+    const hasLocalData = Object.values(localSnapshot).some(isFilled);
+    if (hasLocalData) {
+      await Promise.all(Object.entries(localSnapshot).map(([serverKey, value]) =>
+        fetch("/api/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: serverKey, value })
+        })
+      ));
+    }
+    return false;
+  } catch (error) {
+    return false;
+  }
+}
+
 function loadImports() {
   try {
     const raw = localStorage.getItem(IMPORT_STORAGE_KEY);
@@ -169,6 +242,7 @@ function loadImports() {
 
 function saveImports(imports) {
   localStorage.setItem(IMPORT_STORAGE_KEY, JSON.stringify(imports));
+  syncStateToServer("imports", imports);
 }
 
 function loadExpenseEdits() {
@@ -184,6 +258,7 @@ function loadExpenseEdits() {
 
 function saveExpenseEdits(edits) {
   localStorage.setItem(EXPENSE_EDIT_STORAGE_KEY, JSON.stringify(edits));
+  syncStateToServer("expenseEdits", edits);
 }
 
 function loadCostEdits() {
@@ -199,6 +274,7 @@ function loadCostEdits() {
 
 function saveCostEdits(edits) {
   localStorage.setItem(COST_EDIT_STORAGE_KEY, JSON.stringify(edits));
+  syncStateToServer("costEdits", edits);
 }
 
 function loadManualEdits() {
@@ -214,6 +290,7 @@ function loadManualEdits() {
 
 function saveManualEdits(edits) {
   localStorage.setItem(MANUAL_EDIT_STORAGE_KEY, JSON.stringify(edits));
+  syncStateToServer("manualEdits", edits);
 }
 
 function loadAnnualInputs() {
@@ -229,6 +306,7 @@ function loadAnnualInputs() {
 
 function saveAnnualInputs(values) {
   localStorage.setItem(ANNUAL_INPUT_STORAGE_KEY, JSON.stringify(values));
+  syncStateToServer("annualInputs", values);
 }
 
 function annualInputsForYear(year = state.year) {
@@ -630,6 +708,7 @@ function recalcExpenseOverview(yearData) {
   yearData.overview.totalExpense = totalExpense;
   yearData.overview.profitBeforeTax = safe(yearData.overview.grossProfit) - totalExpense;
   yearData.overview.netProfit = safe(yearData.overview.profitBeforeTax) - safe(yearData.overview.corporateTax);
+  yearData.overview.netMargin = safe(yearData.overview.totalRevenue) ? yearData.overview.netProfit / yearData.overview.totalRevenue : 0;
 }
 
 function recalcIncomeOverview(yearData) {
@@ -656,10 +735,11 @@ function recalcIncomeOverview(yearData) {
   }, { totalRevenue: 0, totalCost: 0, grossProfit: 0 });
   yearData.categories = (yearData.categories || []).map(category => {
     const rows = (yearData.yonPlus || []).map(month => (month.categories || []).find(item => item.name === category.name)).filter(Boolean);
+    const adet = rows.reduce((sum, row) => sum + safe(row.adet), 0);
     const ciro = rows.reduce((sum, row) => sum + safe(row.ciro), 0);
     const maliyet = rows.reduce((sum, row) => sum + safe(row.maliyet), 0);
     const kar = ciro - maliyet;
-    return { ...category, ciro, maliyet, kar, marj: ciro ? kar / ciro : 0 };
+    return { ...category, adet, ciro, maliyet, kar, marj: ciro ? kar / ciro : 0 };
   });
   if (!yearData.overview) return;
   yearData.overview.totalRevenue = totals.totalRevenue;
@@ -740,24 +820,30 @@ function applyCostEditsToData(data, edits) {
   });
 }
 
-function persistCostRowEdit(year, wkod, monthValues) {
+function persistCostRowEdit(year, wkod, monthValues, note = null) {
   const code = String(wkod || "");
   if (!code) return;
   const edits = loadCostEdits();
   const yearKey = String(year);
   edits[yearKey] = edits[yearKey] || {};
-  edits[yearKey][code] = Array.from({ length: 12 }, (_, idx) => safe(monthValues?.[idx]));
+  const oldValue = edits[yearKey][code] || null;
+  const newValue = Array.from({ length: 12 }, (_, idx) => safe(monthValues?.[idx]));
+  edits[yearKey][code] = newValue;
   saveCostEdits(edits);
+  logAudit({ action_type: "cost_edit", entity: `cost:${code}`, year: yearKey, old_value: oldValue, new_value: newValue, note });
 }
 
-function persistExpenseRowEdit(year, row) {
+function persistExpenseRowEdit(year, row, note = null) {
   const label = String(row?.[0] || "");
   if (!label) return;
   const edits = loadExpenseEdits();
   const yearKey = String(year);
   edits[yearKey] = edits[yearKey] || {};
-  edits[yearKey][label] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1]));
+  const oldValue = edits[yearKey][label] || null;
+  const newValue = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1]));
+  edits[yearKey][label] = newValue;
   saveExpenseEdits(edits);
+  logAudit({ action_type: "expense_edit", entity: `expense:${label}`, year: yearKey, old_value: oldValue, new_value: newValue, note });
 }
 
 function persistManualIncomeEdit(year, kind, itemName, month, value) {
@@ -767,9 +853,11 @@ function persistManualIncomeEdit(year, kind, itemName, month, value) {
   edits[yearKey] = edits[yearKey] || {};
   edits[yearKey][kind] = edits[yearKey][kind] || {};
   const currentSeries = incomeMetricSeries(DATA.years[yearKey], kind, itemName);
+  const oldValue = currentSeries[month - 1];
   currentSeries[month - 1] = safe(value);
   edits[yearKey][kind][itemName] = currentSeries;
   saveManualEdits(edits);
+  logAudit({ action_type: "manual_edit", entity: `manual:${kind}:${itemName}`, year: yearKey, month, old_value: oldValue, new_value: safe(value) });
 }
 
 function ensureEditPassword() {
@@ -778,6 +866,75 @@ function ensureEditPassword() {
   if (password === EDIT_PASSWORD) return true;
   window.alert("Şifre hatalı. Hücre değiştirilmedi.");
   return false;
+}
+
+let lastAuditEntries = [];
+
+async function fetchAuditLog(limit = 30) {
+  try {
+    const res = await fetch(`/api/audit?limit=${limit}`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    return [];
+  }
+}
+
+function parseAuditEntity(entity) {
+  const parts = String(entity || "").split(":");
+  return { kind: parts[0], a: parts[1], b: parts[2] };
+}
+
+async function revertAuditEntry(id) {
+  const entry = lastAuditEntries.find(item => String(item.id) === String(id));
+  if (!entry) return;
+  if (!ensureEditPassword()) return;
+  if (!window.confirm(`Bu işlemi geri almak istediğinize emin misiniz?\n${entry.action_type} — ${entry.entity}`)) return;
+  const { kind, a, b } = parseAuditEntity(entry.entity);
+  const yearKey = String(entry.year);
+  if (kind === "cost" && entry.action_type === "cost_edit") {
+    const edits = loadCostEdits();
+    edits[yearKey] = edits[yearKey] || {};
+    if (entry.old_value === null || entry.old_value === undefined) delete edits[yearKey][a];
+    else edits[yearKey][a] = entry.old_value;
+    saveCostEdits(edits);
+  } else if (kind === "expense" && entry.action_type === "expense_edit") {
+    const edits = loadExpenseEdits();
+    edits[yearKey] = edits[yearKey] || {};
+    if (entry.old_value === null || entry.old_value === undefined) delete edits[yearKey][a];
+    else edits[yearKey][a] = entry.old_value;
+    saveExpenseEdits(edits);
+  } else if (kind === "manual" && entry.action_type === "manual_edit") {
+    persistManualIncomeEdit(yearKey, a, b, entry.month, entry.old_value);
+  } else {
+    window.alert("Bu işlem türü için otomatik geri alma desteklenmiyor.");
+    return;
+  }
+  logAudit({ action_type: "revert", entity: entry.entity, year: yearKey, month: entry.month, old_value: entry.new_value, new_value: entry.old_value, note: `Geri alindi: kayit #${entry.id}` });
+  DATA = hydrateData(BASE_DATA);
+  render();
+  renderAuditLogPanel();
+}
+
+async function renderAuditLogPanel() {
+  const panel = q("#auditLogPanel");
+  if (!panel) return;
+  panel.textContent = "Yükleniyor…";
+  const entries = await fetchAuditLog(30);
+  lastAuditEntries = entries;
+  if (!entries.length) {
+    panel.textContent = "Henüz işlem kaydı yok (ya da sunucu senkronu henüz aktif değil).";
+    return;
+  }
+  panel.innerHTML = entries.map(entry => {
+    const when = entry.ts ? new Date(entry.ts).toLocaleString("tr-TR") : "";
+    const canRevert = ["cost_edit", "expense_edit", "manual_edit"].includes(entry.action_type);
+    return `<div class="audit-log-row">
+      <div><strong>${esc(entry.action_type)}</strong> — ${esc(entry.entity)} <span class="audit-log-when">${esc(when)}</span></div>
+      <div class="audit-log-meta">Eski: ${esc(JSON.stringify(entry.old_value))} → Yeni: ${esc(JSON.stringify(entry.new_value))}${entry.note ? ` • ${esc(entry.note)}` : ""}</div>
+      ${canRevert ? `<button type="button" class="audit-revert-btn" data-id="${esc(entry.id)}">Geri Al</button>` : ""}
+    </div>`;
+  }).join("");
 }
 
 function manualCellValue(kind, month, itemName) {
@@ -1335,8 +1492,9 @@ function buildDetailLayerAudit(year = state.year) {
   };
 }
 
-function buildAuditProblemRows(year = state.year, limit = 12) {
-  return buildDetailLayerAudit(year).problemRows
+function buildAuditProblemRows(year = state.year, limit = 12, precomputedAudit = null) {
+  const audit = precomputedAudit || buildDetailLayerAudit(year);
+  return audit.problemRows
     .sort((left, right) =>
       right.amount - left.amount
       || String(left.date).localeCompare(String(right.date))
@@ -1745,8 +1903,27 @@ function buildExpenseDetailPayload(month, itemName) {
       { title: "Ay Bazlı Sıralama", kind: "money", items: monthSeries.map(row => ({ label: monthLabels[row.month], value: row.total })).sort((a, b) => b.value - a.value).slice(0, 12) }
     ],
     note: itemName && sameLabel(itemName, "MAAŞ GİDERLERİ") ? "Personel bazlı maaş listesi için bordro dosyası içe aktarılmalı." : "",
-    emptyMessage: "Bu gider hücresi için kayıt bulunamadı."
+    emptyMessage: "Bu gider hücresi için kayıt bulunamadı.",
+    deletable: true,
+    deleteMonth: month,
+    deleteItemName: itemName || ""
   };
+}
+
+function deleteExpenseDetailRow(category, month) {
+  const yearData = currentYearData();
+  const rows = yearData.expenseRows || DATA.expenseRows || [];
+  const rowIndex = rows.findIndex(row => sameLabel(row[0], category));
+  if (rowIndex === -1) return;
+  const monthIndex = Number(month) - 1;
+  const currentValue = safe(rows[rowIndex][monthIndex + 1]);
+  if (!ensureEditPassword()) return;
+  if (!window.confirm(`${monthLabels[month]} ${category}\nMevcut: ${money(currentValue)}\n\nBu kalem silinsin mi? (0'a cekilir, islem gunlugune kaydedilir)`)) return;
+  const originalItemName = state.detailPayload?.deleteItemName || "";
+  setExpenseCellValue(rowIndex, monthIndex, 0, `Kalem silindi (drawer): ${category}`);
+  render();
+  state.detailPayload = buildExpenseDetailPayload(month, originalItemName);
+  renderCellDetails();
 }
 
 function buildNetDetailPayload(month) {
@@ -1837,10 +2014,11 @@ function renderCellDetails() {
   `;
   q("#detailInsights").innerHTML = (payload.insights || []).map(renderInsightBlock).join("");
   q("#detailInsights").style.display = q("#detailInsights").innerHTML ? "grid" : "none";
-  q("#detailHead").innerHTML = `<tr>${(payload.columns || []).map(column => `<th>${esc(column.label)}</th>`).join("")}</tr>`;
+  const extraCol = payload.deletable ? `<th></th>` : "";
+  q("#detailHead").innerHTML = `<tr>${(payload.columns || []).map(column => `<th>${esc(column.label)}</th>`).join("")}${extraCol}</tr>`;
   q("#detailBody").innerHTML = rows.map(row => `
-    <tr>${(payload.columns || []).map(column => `<td>${formatDetailCell(row, column)}</td>`).join("")}</tr>
-  `).join("") || `<tr><td colspan="${Math.max((payload.columns || []).length, 1)}">${esc(payload.emptyMessage || "Bu filtreye uygun kayıt yok.")}</td></tr>`;
+    <tr>${(payload.columns || []).map(column => `<td>${formatDetailCell(row, column)}</td>`).join("")}${payload.deletable ? `<td><button type="button" class="detail-delete-btn" data-category="${esc(row.category)}" data-month="${payload.deleteMonth}">Sil</button></td>` : ""}</tr>
+  `).join("") || `<tr><td colspan="${Math.max((payload.columns || []).length, 1) + (payload.deletable ? 1 : 0)}">${esc(payload.emptyMessage || "Bu filtreye uygun kayıt yok.")}</td></tr>`;
   repairRenderedText(q("#cellDetailDrawer"));
 }
 
@@ -1976,61 +2154,6 @@ function moveIncomeHoverTip(event, anchorCell = state.hoverCell) {
 function hideIncomeHoverTip() {
   state.hoverCell = null;
   q("#incomeHoverTip")?.classList.remove("open");
-}
-
-function renderOverviewConfidence() {
-  const summary = yearConfidenceSummary();
-  const closedTarget = summary.closedMonths.length || summary.loadedMonths.length;
-  const closedValue = closedTarget ? `${summary.closedCoveredCount}/${closedTarget}` : "0/0";
-  const overview = q("#overviewConfidence");
-  const salesSpan = summary.loadedMonths.length ? monthSpanText(summary.loadedMonths) : "veri yok";
-  const expenseSpan = summary.expenseMonthsLoaded.length ? monthSpanText(summary.expenseMonthsLoaded) : "bekleniyor";
-  const followUps = summary.missingItems.filter(item => item && item !== "Eksik veri yok").slice(0, 4);
-  const headline = summary.statusReason || (summary.expenseMissing ? "Sunum YTD okunmalı." : "Sunum kullanıma hazır.");
-  const subline = [
-    `${summary.yearKey} kapanmış ay kapsamı ${closedValue}.`,
-    summary.activeMonth ? `${monthLabels[summary.activeMonth]} aktif ay.` : "",
-    summary.lastSalesDate ? `Son kayıt ${formatDateLabel(summary.lastSalesDate)}.` : "",
-    summary.expenseMissing ? `Gider kapsamı ${expenseSpan}.` : `Toplam gider ${money(summary.expenseTotal)}.`
-  ].filter(Boolean).join(" ");
-  const pills = [
-    { tone: summary.closedMissingMonths.length ? "warn" : "ready", label: `Satış ayları ${salesSpan}` },
-    { tone: "ready", label: `Satış detay ${num(summary.salesRowCount)} satır` },
-    { tone: summary.invoiceCount ? "ready" : "warn", label: `${num(summary.invoiceCount)} fatura` },
-    { tone: summary.expenseMissing ? "warn" : "ready", label: `Gider ${expenseSpan}` },
-    { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` }
-  ];
-  const followTone = summary.status === "risk" ? "risk" : "warn";
-  const followPill = item => {
-    const key = missingItemControlKey(item);
-    return key
-      ? `<button class="overview-foot-pill ${followTone}" type="button" data-check="${esc(key)}" data-label="${esc(item)}">${esc(item)}</button>`
-      : `<span class="overview-foot-pill ${followTone}">${esc(item)}</span>`;
-  };
-
-  overview.innerHTML = `
-    <div class="card overview-strip ${summary.status}">
-      <div class="overview-strip-top">
-        <div class="overview-strip-copy">
-          <span class="overview-strip-kicker">Veri Durumu</span>
-          <strong>${esc(headline)}</strong>
-          <p>${esc(subline)}</p>
-        </div>
-        <div class="overview-strip-meta">
-          <span class="overview-pill ${summary.status}">${esc(summary.statusLabel)}</span>
-          ${pills.map(item => `<span class="overview-pill ${item.tone}">${esc(item.label)}</span>`).join("")}
-        </div>
-      </div>
-      ${followUps.length ? `
-        <div class="overview-strip-foot">
-          <span class="overview-foot-label">Takip</span>
-          <div class="overview-foot-pills">
-            ${followUps.map(followPill).join("")}
-          </div>
-        </div>
-      ` : ""}
-    </div>
-  `;
 }
 
 function renderOverviewSummaryBar() {
@@ -2219,8 +2342,9 @@ function renderYONPlus() {
 }
 
 function renderYONRapor() {
-  const r = currentYearData().yonRapor;
-  const sum = r.summary;
+  const yearData = currentYearData();
+  const r = yearData.yonRapor;
+  const sum = yearData.overview;
   q("#profitChain").innerHTML = [
     ["Toplam Satış Cirosu", money(sum.totalRevenue), "Tüm kategoriler"],
     ["Toplam Maliyet", money(sum.totalCost), "Hammadde + işçilik + GG + DG"],
@@ -2232,7 +2356,11 @@ function renderYONRapor() {
     ["Net Kar Marjı", pct(sum.netMargin), "Net kar / ciro"]
   ].map(item => `<div class="metric-row"><div><strong>${item[0]}</strong><small>${item[2]}</small></div><div><strong>${item[1]}</strong></div></div>`).join("");
 
-  q("#yonRaporCategoryBody").innerHTML = r.categories.map(c => `
+  const totalRevenue = safe(sum.totalRevenue);
+  const liveCategories = [...(yearData.categories || [])]
+    .sort((a, b) => safe(b.ciro) - safe(a.ciro))
+    .map(c => ({ ...c, share: totalRevenue ? safe(c.ciro) / totalRevenue : 0 }));
+  q("#yonRaporCategoryBody").innerHTML = liveCategories.map(c => `
     <tr>
       <td>${c.name}</td>
       <td>${num(c.adet, 3)}</td>
@@ -2268,13 +2396,19 @@ function renderCustomers() {
   `).join("") || `<tr><td colspan="4">Raporlanabilir müşteri kaydı yok. Kimliksiz satırlar Kontrol ekranında izlenir.</td></tr>`;
 }
 
+let _masterMonthIndexCache = { key: null, value: 0 };
 function currentMasterMonthIndex() {
-  if (state.month !== "all") return Math.max(0, Number(state.month) - 1);
-  return latestMonthIndex(DATA.masterRows, (row, idx) => {
-    const months = state.year === "2025" ? row.months25 : row.months26;
-    const metric = months?.[idx] || {};
-    return safe(metric.A) + safe(metric.C) + safe(metric.TM);
-  });
+  const cacheKey = `${state.year}|${state.month}`;
+  if (_masterMonthIndexCache.key === cacheKey) return _masterMonthIndexCache.value;
+  const value = state.month !== "all"
+    ? Math.max(0, Number(state.month) - 1)
+    : latestMonthIndex(DATA.masterRows, (row, idx) => {
+      const months = state.year === "2025" ? row.months25 : row.months26;
+      const metric = months?.[idx] || {};
+      return safe(metric.A) + safe(metric.C) + safe(metric.TM);
+    });
+  _masterMonthIndexCache = { key: cacheKey, value };
+  return value;
 }
 
 function selectedMasterMonthMeta() {
@@ -2596,10 +2730,15 @@ function costRowByCode(wkod) {
   return filteredCostRows().find(row => row.wkod === String(wkod));
 }
 
+let _sourceCostRowMap = null;
 function sourceCostRow(wkod) {
   const code = String(wkod || "");
   if (!code) return null;
-  return (BASE_DATA?.costRows || []).find(row => String(row?.WKOD ?? "") === code) || null;
+  if (!_sourceCostRowMap) {
+    _sourceCostRowMap = new Map();
+    (BASE_DATA?.costRows || []).forEach(row => _sourceCostRowMap.set(String(row?.WKOD ?? ""), row));
+  }
+  return _sourceCostRowMap.get(code) || null;
 }
 
 function sourceCostValue(wkod, monthIndex) {
@@ -2610,8 +2749,8 @@ function sourceCostValue(wkod, monthIndex) {
   return safe(months[monthIndex]);
 }
 
-function isCostCellEdited(wkod, monthIndex, value) {
-  const edits = loadCostEdits()?.[String(state.year)]?.[String(wkod)] || null;
+function isCostCellEdited(wkod, monthIndex, value, yearEdits = null) {
+  const edits = (yearEdits || loadCostEdits()?.[String(state.year)] || {})[String(wkod)] || null;
   if (!Array.isArray(edits)) return false;
   if (Math.abs(safe(edits[monthIndex]) - safe(value)) >= 0.001) return false;
   const sourceValue = sourceCostValue(wkod, monthIndex);
@@ -2955,7 +3094,7 @@ function isExpenseCellEdited(label, monthIndex, value, rowIndex = null) {
   return sourceValue === null || Math.abs(safe(value) - safe(sourceValue)) >= 0.001;
 }
 
-function setExpenseCellValue(rowIndex, monthIndex, nextValue) {
+function setExpenseCellValue(rowIndex, monthIndex, nextValue, note = null) {
   const yearData = currentYearData();
   const rows = yearData.expenseRows || DATA.expenseRows || [];
   const row = rows[rowIndex];
@@ -2964,7 +3103,7 @@ function setExpenseCellValue(rowIndex, monthIndex, nextValue) {
   row[monthIndex + 1] = safe(nextValue);
   row[13] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1])).reduce((sum, value) => sum + value, 0);
   recalcExpenseOverview(yearData);
-  persistExpenseRowEdit(state.year, row);
+  persistExpenseRowEdit(state.year, row, note);
   lastExpenseEdit = {
     year: state.year,
     rowIndex,
@@ -3092,6 +3231,7 @@ function renderCosts() {
       <th>${renderSortButton("Değişim", "deltaPct", "costSortKey", "costSortDir", "desc")}</th>
     </tr>`;
   }
+  const yearCostEdits = loadCostEdits()[String(state.year)] || {};
   q("#costBody").innerHTML = costRows.map(row => `
     <tr>
       <td>${esc(row.wkod)}</td>
@@ -3101,7 +3241,7 @@ function renderCosts() {
       <td>${money(row.basePrice)}</td>
       <td>${esc(row.currency)}</td>
       ${row.monthValues.map((value, idx) => {
-        const edited = isCostCellEdited(row.wkod, idx, value);
+        const edited = isCostCellEdited(row.wkod, idx, value, yearCostEdits);
         return `
         <td class="cost-month-cell ${edited ? "edited" : ""}" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
           <div class="cost-cell-control">
@@ -3310,7 +3450,7 @@ function renderControl() {
     }
   ];
   const renderedChecks = [...checks.map((check, index) => ({ ...check, key: check.key || `static-${index}` })), ...systemChecks];
-  const problemRows = buildAuditProblemRows(state.year, 10);
+  const problemRows = buildAuditProblemRows(state.year, 10, audit);
   const problemBlock = audit.problemGroups.length
     ? `
       <div class="control-trace">
@@ -3406,6 +3546,7 @@ function renderControl() {
       </div>
     </button>`;
   }).join("");
+  renderAuditLogPanel();
 }
 
 async function workbookRows(file) {
@@ -3768,6 +3909,13 @@ async function processImports() {
   state.month = "all";
   populateMonthSelect();
   state.importLog.unshift(`Tamamlandı: ${num(addedSales)} satış, ${num(addedExpenses)} gider, ${num(addedPayroll)} bordro satırı işlendi.`);
+  logAudit({
+    action_type: "import",
+    entity: `import:${salesFiles.map(f => f.name).concat(expenseFiles.map(f => f.name)).join(",")}`,
+    year: state.year,
+    new_value: { addedSales, addedExpenses, addedPayroll },
+    note: `${salesFiles.length} satış + ${expenseFiles.length} gider dosyası`
+  });
   render();
 }
 
@@ -4005,7 +4153,9 @@ function render() {
   if (state.view === "control") renderControl();
   if (state.view === "import") renderImport();
   qa(".view").forEach(v => v.classList.remove("active"));
-  q(`#${state.view}View`).classList.add("active");
+  const activeViewEl = q(`#${state.view}View`);
+  activeViewEl.classList.add("active");
+  activeViewEl.querySelectorAll(".income-table-wrap, .table-wrap, .master-wrap, .cost-matrix-wrap, .product-cost-wrap").forEach(el => { el.scrollTop = 0; });
   qa(".menu-item").forEach(btn => btn.classList.toggle("active", btn.dataset.view === state.view));
   syncDebugState();
   repairRenderedText(q(".app-shell"));
@@ -4055,6 +4205,16 @@ function bind() {
   q("#detailFilter")?.addEventListener("input", e => {
     state.detailFilter = e.target.value;
     renderCellDetails();
+  });
+  q("#detailBody")?.addEventListener("click", e => {
+    const btn = e.target.closest(".detail-delete-btn");
+    if (!btn) return;
+    deleteExpenseDetailRow(btn.dataset.category, Number(btn.dataset.month));
+  });
+  q("#auditLogPanel")?.addEventListener("click", e => {
+    const btn = e.target.closest(".audit-revert-btn");
+    if (!btn) return;
+    revertAuditEntry(btn.dataset.id);
   });
   q("#customerBody")?.addEventListener("click", e => {
     const row = e.target.closest("[data-customer]");
@@ -4235,6 +4395,13 @@ try {
   populateMonthSelect();
   bind();
   render();
+  bootstrapServerState().then(changed => {
+    if (!changed) return;
+    DATA = hydrateData(BASE_DATA);
+    state.year = latestAvailableYear();
+    populateMonthSelect();
+    render();
+  });
 } catch (error) {
   if (typeof console !== "undefined") {
     console.warn("Dashboard bootstrap skipped (this page does not have the main dashboard DOM):", error.message);
