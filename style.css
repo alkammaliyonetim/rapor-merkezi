@@ -296,6 +296,32 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
 .metric-row small{display:block;color:var(--muted);margin-top:2px}
 .yonrapor-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .full-width{grid-column:1/-1}
+.strategic-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.strategic-kpi-row{margin-top:4px}
+.viz-period-note{grid-column:1/-1;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fde68a;border-radius:10px;padding:8px 12px;font-size:12px;margin-bottom:10px}
+.strategic-kpi-tile{display:flex;flex-direction:column;gap:6px}
+.strategic-kpi-label{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.strategic-kpi-value{font-size:22px;color:#fff}
+.strategic-kpi-delta{display:flex;align-items:center;gap:6px;font-size:12px}
+.strategic-kpi-delta-note{color:var(--muted)}
+.kpi-delta{font-weight:800;padding:2px 7px;border-radius:999px}
+.kpi-delta.good{color:#0ca30c;background:rgba(12,163,12,.14)}
+.kpi-delta.bad{color:#e66767;background:rgba(230,103,103,.14)}
+.kpi-delta.neutral{color:var(--muted);background:rgba(157,178,212,.12)}
+.viz-root{width:100%}
+.viz-svg{width:100%;height:auto;display:block}
+.viz-empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
+.viz-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.viz-legend-item{display:flex;align-items:center;gap:6px}
+.viz-legend-swatch{width:10px;height:10px;border-radius:3px;display:inline-block}
+.viz-axis-label{font-size:10px;fill:#898781}
+.viz-value-label{font-size:11px;font-weight:700;fill:#e8edf5}
+.viz-grid{stroke:rgba(157,178,212,.16);stroke-width:1}
+.viz-baseline{stroke:rgba(157,178,212,.4);stroke-width:1}
+.viz-connector{stroke:rgba(157,178,212,.3);stroke-width:1;stroke-dasharray:2,3}
+@media (max-width:1200px){
+  .strategic-layout{grid-template-columns:1fr}
+}
 .filters-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .master-workbench{display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px;align-items:start}
 .master-side{display:grid;gap:12px;min-width:0}

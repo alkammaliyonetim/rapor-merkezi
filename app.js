@@ -2373,6 +2373,249 @@ function renderYONRapor() {
   `).join("");
 }
 
+const VIZ_COLOR = {
+  blue: "#3987e5",
+  aqua: "#199e70",
+  violet: "#9085e9",
+  orange: "#d95926",
+  good: "#0ca30c",
+  critical: "#e66767",
+  grid: "rgba(157,178,212,.16)",
+  axisText: "#898781",
+  primaryText: "#e8edf5",
+  secondaryText: "#9db2d4"
+};
+
+function deltaBadge(current, previous, higherIsBetter = true, unit = "money") {
+  const cur = safe(current);
+  const prev = safe(previous);
+  if (!prev) return `<span class="kpi-delta neutral">—</span>`;
+  const changePct = (cur - prev) / Math.abs(prev);
+  const isGood = higherIsBetter ? changePct >= 0 : changePct <= 0;
+  const arrow = changePct >= 0 ? "▲" : "▼";
+  const cls = isGood ? "good" : "bad";
+  if (Math.abs(changePct) > 3) {
+    const diffLabel = unit === "pct"
+      ? `${changePct >= 0 ? "+" : "−"}${num(Math.abs(cur - prev) * 100, 1)} puan`
+      : `${changePct >= 0 ? "+" : "−"}${money(Math.abs(cur - prev))}`;
+    return `<span class="kpi-delta ${cls}" title="Önceki değer çok küçük olduğu için yüzde değişim anlamlı değil, mutlak fark gösteriliyor">${arrow} ${diffLabel}</span>`;
+  }
+  return `<span class="kpi-delta ${cls}">${arrow} ${pct(Math.abs(changePct))}</span>`;
+}
+
+function yearSumForMonths(yearData, months) {
+  let revenue = 0, cost = 0, grossProfit = 0, expense = 0;
+  months.forEach(m => {
+    const row = (yearData?.yonPlus || []).find(entry => entry.month === m) || { total: {} };
+    revenue += safe(row.total?.ciro);
+    cost += safe(row.total?.maliyet);
+    grossProfit += safe(row.total?.kar);
+    expense += yearData ? expenseMonthTotal(yearData, m) : 0;
+  });
+  const netProfit = grossProfit - expense;
+  return { totalRevenue: revenue, totalCost: cost, grossProfit, totalExpense: expense, netProfit, netMargin: revenue ? netProfit / revenue : 0 };
+}
+
+function activeMonthsOf(yearData) {
+  return (yearData?.yonPlus || []).filter(m => safe(m.total?.ciro) > 0).map(m => m.month).sort((a, b) => a - b);
+}
+
+function renderStrategic() {
+  const yearData = currentYearData();
+  const prevYearKey = String(Number(state.year) - 1);
+  const prevYearData = DATA.years[prevYearKey];
+  const activeMonths = activeMonthsOf(yearData);
+  const isFullYear = activeMonths.length === 12;
+  const sum = isFullYear ? (yearData.overview || {}) : yearSumForMonths(yearData, activeMonths);
+  const prevSum = prevYearData ? yearSumForMonths(prevYearData, activeMonths) : null;
+  const periodNote = isFullYear
+    ? `${prevYearKey}'e göre`
+    : `${prevYearKey} Ocak-${monthLabels[activeMonths[activeMonths.length - 1]] || ""} ile aynı dönem`;
+
+  const existingNote = q("#strategicPeriodNote");
+  if (existingNote) existingNote.remove();
+
+  const kpis = [
+    { label: "Ciro", value: money(sum.totalRevenue), delta: prevSum ? deltaBadge(sum.totalRevenue, prevSum.totalRevenue) : "" },
+    { label: "Brüt Kâr", value: money(sum.grossProfit), delta: prevSum ? deltaBadge(sum.grossProfit, prevSum.grossProfit) : "" },
+    { label: "Net Kâr", value: money(sum.netProfit), delta: prevSum ? deltaBadge(sum.netProfit, prevSum.netProfit) : "" },
+    { label: "Net Kâr Marjı", value: pct(sum.netMargin), delta: prevSum ? deltaBadge(sum.netMargin, prevSum.netMargin, true, "pct") : "" }
+  ];
+  q("#strategicKpiRow").innerHTML = kpis.map(k => `
+    <div class="card strategic-kpi-tile">
+      <span class="strategic-kpi-label">${esc(k.label)}</span>
+      <strong class="strategic-kpi-value">${k.value}</strong>
+      ${k.delta ? `<div class="strategic-kpi-delta">${k.delta} <span class="strategic-kpi-delta-note">${esc(periodNote)}</span></div>` : `<div class="strategic-kpi-delta"><span class="kpi-delta neutral">${esc(prevYearKey)} verisi yok</span></div>`}
+    </div>
+  `).join("");
+  if (!isFullYear && activeMonths.length) {
+    q("#strategicKpiRow").insertAdjacentHTML("beforebegin", `<div id="strategicPeriodNote" class="viz-period-note">Not: ${esc(state.year)} yılı henüz ${esc(monthLabels[activeMonths[activeMonths.length - 1]])} ayına kadar yüklü — karşılaştırmalar aynı ay aralığı (${esc(monthLabels[activeMonths[0]])}-${esc(monthLabels[activeMonths[activeMonths.length - 1]])}) için yapılıyor, tam yıl değil.</div>`);
+  }
+
+  q("#waterfallChart").innerHTML = prevSum
+    ? buildWaterfallChart(prevSum, sum, prevYearKey, state.year)
+    : `<div class="viz-empty">${esc(prevYearKey)} yılı verisi olmadığı için köprü hesaplanamıyor.</div>`;
+
+  q("#trendChart").innerHTML = buildTrendChart(yearData, state.year);
+
+  const topCustomers = visibleSalesCustomers(yearData.yonRapor?.topCustomers || []).slice(0, 15);
+  q("#paretoChart").innerHTML = topCustomers.length
+    ? buildParetoChart(topCustomers)
+    : `<div class="viz-empty">Bu yıl için müşteri verisi yok.</div>`;
+}
+
+function buildWaterfallChart(prevSum, curSum, prevYear, curYear) {
+  const dRevenue = safe(curSum.totalRevenue) - safe(prevSum.totalRevenue);
+  const dCost = -(safe(curSum.totalCost) - safe(prevSum.totalCost));
+  const dExpense = -(safe(curSum.totalExpense) - safe(prevSum.totalExpense));
+  const steps = [
+    { label: `${prevYear} Net Kâr`, value: safe(prevSum.netProfit), kind: "base" },
+    { label: "Δ Ciro", value: dRevenue, kind: dRevenue >= 0 ? "good" : "bad" },
+    { label: "Δ Maliyet", value: dCost, kind: dCost >= 0 ? "good" : "bad" },
+    { label: "Δ Gider", value: dExpense, kind: dExpense >= 0 ? "good" : "bad" },
+    { label: `${curYear} Net Kâr`, value: safe(curSum.netProfit), kind: "base" }
+  ];
+  let running = 0;
+  const bars = steps.map((step, idx) => {
+    const isEdge = step.kind === "base";
+    const start = isEdge ? 0 : running;
+    const end = isEdge ? step.value : running + step.value;
+    if (!isEdge) running = end;
+    else running = step.value;
+    return { ...step, start: Math.min(start, end), end: Math.max(start, end), floor: isEdge ? 0 : Math.min(start, end) };
+  });
+  const allValues = bars.flatMap(b => [b.start, b.end, 0]);
+  const maxV = Math.max(...allValues, 1);
+  const minV = Math.min(...allValues, 0);
+  const width = 720, height = 260, padL = 8, padR = 8, padT = 16, padB = 34;
+  const plotW = width - padL - padR, plotH = height - padT - padB;
+  const scaleY = v => padT + plotH - ((v - minV) / (maxV - minV || 1)) * plotH;
+  const barSlot = plotW / bars.length;
+  const barW = Math.min(56, barSlot * 0.5);
+  const zeroY = scaleY(0);
+  const colorFor = kind => kind === "good" ? VIZ_COLOR.good : kind === "bad" ? VIZ_COLOR.critical : VIZ_COLOR.blue;
+  const barsSvg = bars.map((b, idx) => {
+    const cx = padL + barSlot * idx + barSlot / 2;
+    const y1 = scaleY(b.end);
+    const y2 = scaleY(b.start);
+    const top = Math.min(y1, y2);
+    const h = Math.max(Math.abs(y2 - y1), 1);
+    const color = colorFor(b.kind);
+    const valueLabel = money(b.kind === "base" ? b.value : (b.value >= 0 ? b.value : b.value));
+    const labelSign = b.kind === "base" ? "" : (b.value >= 0 ? "+" : "");
+    return `
+      <g>
+        <rect x="${(cx - barW / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}"></rect>
+        <text x="${cx.toFixed(1)}" y="${(top - 6).toFixed(1)}" text-anchor="middle" class="viz-value-label">${labelSign}${valueLabel}</text>
+        <text x="${cx.toFixed(1)}" y="${(height - 10).toFixed(1)}" text-anchor="middle" class="viz-axis-label">${esc(b.label)}</text>
+        <title>${esc(b.label)}: ${money(b.value)}</title>
+      </g>`;
+  }).join("");
+  const connectors = bars.slice(0, -1).map((b, idx) => {
+    if (idx >= bars.length - 2) return "";
+    const nextIdx = idx + 1;
+    const cx1 = padL + barSlot * idx + barSlot / 2 + barW / 2;
+    const cx2 = padL + barSlot * nextIdx + barSlot / 2 - barW / 2;
+    const y = scaleY(b.end);
+    return `<line x1="${cx1.toFixed(1)}" y1="${y.toFixed(1)}" x2="${cx2.toFixed(1)}" y2="${y.toFixed(1)}" class="viz-connector"></line>`;
+  }).join("");
+  return `
+    <svg class="viz-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Kar köprüsü">
+      <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${width - padR}" y2="${zeroY.toFixed(1)}" class="viz-baseline"></line>
+      ${connectors}
+      ${barsSvg}
+    </svg>`;
+}
+
+function buildTrendChart(yearData, year) {
+  const months = Array.from({ length: 12 }, (_, idx) => idx + 1);
+  const monthRow = m => yearData.yonPlus.find(entry => entry.month === m) || { total: {} };
+  const series = [
+    { key: "ciro", label: "Ciro", color: VIZ_COLOR.blue, values: months.map(m => safe(monthRow(m).total?.ciro)) },
+    { key: "gross", label: "Brüt Kâr", color: VIZ_COLOR.aqua, values: months.map(m => safe(monthRow(m).total?.kar)) },
+    { key: "net", label: "Net Kâr", color: VIZ_COLOR.violet, values: months.map(m => safe(monthRow(m).total?.kar) - expenseMonthTotal(yearData, m)) }
+  ];
+  const hasData = series.some(s => s.values.some(v => v));
+  if (!hasData) return `<div class="viz-empty">${esc(year)} için aylık veri yok.</div>`;
+  const width = 640, height = 260, padL = 8, padR = 8, padT = 16, padB = 44;
+  const plotW = width - padL - padR, plotH = height - padT - padB;
+  const allValues = series.flatMap(s => s.values).concat([0]);
+  const maxV = Math.max(...allValues);
+  const minV = Math.min(...allValues, 0);
+  const scaleX = idx => padL + (plotW * idx) / (months.length - 1);
+  const scaleY = v => padT + plotH - ((v - minV) / (maxV - minV || 1)) * plotH;
+  const zeroY = scaleY(0);
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(t => {
+    const y = padT + plotH * t;
+    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" class="viz-grid"></line>`;
+  }).join("");
+  const monthTicks = months.map((m, idx) => {
+    if (idx % 2 !== 0 && months.length > 6) return "";
+    const x = scaleX(idx);
+    return `<text x="${x.toFixed(1)}" y="${height - 10}" text-anchor="middle" class="viz-axis-label">${monthLabels[m].slice(0, 3)}</text>`;
+  }).join("");
+  const linesSvg = series.map(s => {
+    const points = s.values.map((v, idx) => `${scaleX(idx).toFixed(1)},${scaleY(v).toFixed(1)}`).join(" ");
+    const lastIdx = s.values.length - 1;
+    const lastX = scaleX(lastIdx), lastY = scaleY(s.values[lastIdx]);
+    return `
+      <polyline points="${points}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="4" fill="${s.color}" stroke="var(--panel, #16233f)" stroke-width="2"></circle>
+      <title>${esc(s.label)}: ${money(s.values[lastIdx])}</title>`;
+  }).join("");
+  const legend = series.map(s => `<span class="viz-legend-item"><span class="viz-legend-swatch" style="background:${s.color}"></span>${esc(s.label)}</span>`).join("");
+  return `
+    <div class="viz-legend">${legend}</div>
+    <svg class="viz-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Aylık trend">
+      ${gridLines}
+      <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${width - padR}" y2="${zeroY.toFixed(1)}" class="viz-baseline"></line>
+      ${linesSvg}
+      ${monthTicks}
+    </svg>`;
+}
+
+function buildParetoChart(customers) {
+  const total = customers.reduce((sum, c) => sum + safe(c.revenue), 0) || 1;
+  let cumulative = 0;
+  const rows = customers.map(c => {
+    const share = safe(c.revenue) / total;
+    cumulative += share;
+    return { name: c.name, revenue: c.revenue, share, cumulative };
+  });
+  const width = 760, height = 300, padL = 8, padR = 8, padT = 16, padB = 70;
+  const plotW = width - padL - padR, plotH = height - padT - padB;
+  const barSlot = plotW / rows.length;
+  const barW = Math.min(34, barSlot * 0.62);
+  const maxShare = Math.max(...rows.map(r => r.share), 0.01);
+  const scaleBarY = share => padT + plotH - (share / maxShare) * plotH;
+  const scaleCumY = cum => padT + plotH - cum * plotH;
+  const bars = rows.map((r, idx) => {
+    const cx = padL + barSlot * idx + barSlot / 2;
+    const y = scaleBarY(r.share);
+    const h = padT + plotH - y;
+    return `
+      <g>
+        <rect x="${(cx - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${VIZ_COLOR.blue}"></rect>
+        <text x="${cx.toFixed(1)}" y="${height - 54}" text-anchor="end" class="viz-axis-label" transform="rotate(-40 ${cx.toFixed(1)} ${height - 54})">${esc((r.name || "").slice(0, 16))}</text>
+        <title>${esc(r.name)}: ${money(r.revenue)} (%${(r.share * 100).toFixed(1)})</title>
+      </g>`;
+  }).join("");
+  const cumPoints = rows.map((r, idx) => `${(padL + barSlot * idx + barSlot / 2).toFixed(1)},${scaleCumY(r.cumulative).toFixed(1)}`).join(" ");
+  const eightyLineY = scaleCumY(0.8);
+  return `
+    <div class="viz-legend">
+      <span class="viz-legend-item"><span class="viz-legend-swatch" style="background:${VIZ_COLOR.blue}"></span>Ciro payı</span>
+      <span class="viz-legend-item"><span class="viz-legend-swatch" style="background:${VIZ_COLOR.orange}"></span>Kümülatif %</span>
+    </div>
+    <svg class="viz-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Müşteri Pareto grafiği">
+      <line x1="${padL}" y1="${eightyLineY.toFixed(1)}" x2="${width - padR}" y2="${eightyLineY.toFixed(1)}" class="viz-grid" stroke-dasharray="3,3"></line>
+      <text x="${width - padR}" y="${(eightyLineY - 4).toFixed(1)}" text-anchor="end" class="viz-axis-label">%80</text>
+      ${bars}
+      <polyline points="${cumPoints}" fill="none" stroke="${VIZ_COLOR.orange}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      ${rows.map((r, idx) => `<circle cx="${(padL + barSlot * idx + barSlot / 2).toFixed(1)}" cy="${scaleCumY(r.cumulative).toFixed(1)}" r="3.5" fill="${VIZ_COLOR.orange}"></circle>`).join("")}
+    </svg>`;
+}
+
 function renderCategoryProfit() {
   q("#categoryProfitBody").innerHTML = currentYearData().categories.map(c => `
     <tr>
@@ -4113,6 +4356,7 @@ function updateHeader() {
     overview:["Genel Bakış","Yıl geçişli ve karşılaştırmalı özet"],
     yonplus:["YÖN_PLUS","Aylık bloklar ve kategori performansı"],
     yonrapor:["YÖN_RAPOR","Yıllık özet, kar zinciri ve üst müşteri listesi"],
+    strategic:["Stratejik Analiz","Yıllık karşılaştırma, kar köprüsü, aylık trend ve müşteri yoğunlaşması"],
     categories:["Kategori Karlılığı","Kategori bazlı ciro, maliyet ve kâr"],
     customers:["Müşteri Analizi","Yıllık müşteri ciro kırılımı"],
     master:["MASTER_ERP","Tekil ürün maliyetleme ve reçete alanları"],
@@ -4145,6 +4389,7 @@ function render() {
   renderOverview();
   if (state.view === "yonplus") renderYONPlus();
   if (state.view === "yonrapor") renderYONRapor();
+  if (state.view === "strategic") renderStrategic();
   if (state.view === "categories") renderCategoryProfit();
   if (state.view === "customers") renderCustomers();
   if (state.view === "master") renderMaster();

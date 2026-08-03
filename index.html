@@ -22,6 +22,7 @@
         <button class="menu-item active" data-view="overview">Genel Bakış</button>
         <button class="menu-item" data-view="yonplus">YÖN_PLUS</button>
         <button class="menu-item" data-view="yonrapor">YÖN_RAPOR</button>
+        <button class="menu-item" data-view="strategic">Stratejik Analiz</button>
         <button class="menu-item" data-view="categories">Kategori Karlılığı</button>
         <button class="menu-item" data-view="customers">Müşteri Analizi</button>
         <button class="menu-item" data-view="master">MASTER_ERP</button>
@@ -106,6 +107,31 @@
                 <tbody id="yonRaporCustomerBody"></tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="strategicView">
+        <div class="section-heading">
+          <h3>Stratejik Analiz</h3>
+          <p>Yıllık karşılaştırma, kar köprüsü, aylık trend ve müşteri yoğunlaşması</p>
+        </div>
+        <div id="strategicKpiRow" class="cards-grid strategic-kpi-row"></div>
+        <div class="strategic-layout">
+          <div class="card">
+            <div class="card-title">Kar Köprüsü — Önceki Yıla Göre</div>
+            <p class="section-copy">Net kârdaki değişimin ciro, maliyet ve gider katkılarına ayrıştırılması.</p>
+            <div id="waterfallChart" class="viz-root"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Aylık Trend</div>
+            <p class="section-copy">Ciro, brüt kâr ve net kârın ay bazlı seyri.</p>
+            <div id="trendChart" class="viz-root"></div>
+          </div>
+          <div class="card full-width">
+            <div class="card-title">Müşteri Yoğunlaşması (Pareto)</div>
+            <p class="section-copy">En büyük 15 müşterinin toplam ciro içindeki payı ve kümülatif yüzdesi.</p>
+            <div id="paretoChart" class="viz-root"></div>
           </div>
         </div>
       </section>
