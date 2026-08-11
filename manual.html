@@ -113,8 +113,9 @@
 
       <section class="card">
         <h3>2. Ürün Maliyet Girişi</h3>
-        <p class="muted">MDF ve SUNTA için kalınlık/boy mm olarak yazılır. Seçili ay maliyeti rapora temel olur.</p>
-        <div class="table-wrap"><table><thead><tr><th>WKOD</th><th>Ürün</th><th>Kalınlık/Boy</th><th>Kategori</th><th>PB</th><th>Base Price</th><th>Seçili Ay Maliyeti</th><th></th></tr></thead><tbody id="costBody"></tbody></table></div>
+        <p class="muted">WKOD yazınca ürün/kategori otomatik tanınır. Döviz cinsinden girilirse kur tarihine göre TCMB kuru otomatik çekilir. Maliyet, seçtiğiniz başlangıç-bitiş ay aralığının tamamına uygulanır.</p>
+        <datalist id="wkodOptions"></datalist>
+        <div class="table-wrap"><table><thead><tr><th>WKOD</th><th>Ürün / Kategori</th><th>PB</th><th>Birim Fiyat</th><th>Kur Tarihi</th><th>Kur</th><th>Aralık (Ay)</th><th>Hesaplanan TL/Ay</th><th></th></tr></thead><tbody id="costBody"></tbody></table></div>
         <div class="button-row"><button id="addCost">Satır Ekle</button></div>
       </section>
 
@@ -196,6 +197,41 @@
     }
     function curSelect(value) { return `<select data-field="currency"><option ${value==="TRY"?"selected":""}>TRY</option><option ${value==="USD"?"selected":""}>USD</option><option ${value==="EUR"?"selected":""}>EUR</option></select>`; }
 
+    function findCostRow(wkod) {
+      const code = String(wkod || "").trim();
+      if (!code) return null;
+      return (DATA.costRows || []).find(r => String(r.WKOD || "").trim().toUpperCase() === code.toUpperCase()) || null;
+    }
+    function populateWkodOptions() {
+      const list = q("#wkodOptions");
+      if (!list) return;
+      list.innerHTML = (DATA.costRows || []).map(r => `<option value="${r.WKOD}">${(r["ÜRÜN"]||"").toString().slice(0,40)}</option>`).join("");
+    }
+    function monthSelect(field, value) {
+      return `<select data-field="${field}">${months.map((m,i)=>`<option value="${i+1}" ${Number(value)===i+1?"selected":""}>${m}</option>`).join("")}</select>`;
+    }
+    function todayIso() { return new Date().toISOString().slice(0,10); }
+    const valRate = (x) => Number(String(x ?? "").trim().replace(",", ".")) || 0;
+    function computeCostTl(row) {
+      const rate = row.currency === "TRY" ? 1 : valRate(row.fxRate);
+      return val(row.unitPrice) * (rate || 0);
+    }
+    async function fetchFxRate(rowIndex) {
+      const e = entry(); const row = e.costs[rowIndex]; if (!row) return;
+      if (row.currency === "TRY") { row.fxRate = 1; render(); return; }
+      const dateStr = row.fxDate || todayIso();
+      try {
+        const res = await fetch(`/api/fxrate?date=${encodeURIComponent(dateStr)}&currency=${encodeURIComponent(row.currency)}`);
+        const data = await res.json();
+        if (!res.ok || !data.rate) { row.fxNote = data.error || "Kur bulunamadı, elle girin."; render(); return; }
+        row.fxRate = data.rate;
+        row.fxNote = data.resolvedDate !== dateStr ? `Kur ${data.resolvedDate} tarihinden alındı (${dateStr} iş günü değil).` : `TCMB kuru: ${data.rate}`;
+      } catch (err) {
+        row.fxNote = "Kur servisine ulaşılamadı, elle girin.";
+      }
+      render();
+    }
+
     function render() {
       q("#periodTitle").textContent = `${months[Number(mstate.month)-1] || ""} ${mstate.year} Verilerini Elle Gir`;
       q("#year").value = mstate.year;
@@ -215,7 +251,26 @@
     }
 
     function renderCosts(e) {
-      q("#costBody").innerHTML = e.costs.map((r,i) => `<tr data-list="costs" data-i="${i}"><td><input data-field="wkod" value="${r.wkod||""}"></td><td><input data-field="product" value="${r.product||""}"></td><td><input data-field="dimension" value="${r.dimension||""}"></td><td>${catSelect(r.category)}</td><td>${curSelect(r.currency||"TRY")}</td><td><input data-field="basePrice" value="${r.basePrice||""}"></td><td><input data-field="monthCost" value="${r.monthCost||""}"></td><td><button class="danger" data-del="costs" data-i="${i}">Sil</button></td></tr>`).join("");
+      populateWkodOptions();
+      q("#costBody").innerHTML = e.costs.map((r,i) => {
+        const match = findCostRow(r.wkod);
+        const wkodClass = !r.wkod ? "" : (match ? "good" : "bad");
+        const wkodBorder = wkodClass === "good" ? "border-color:var(--good)" : wkodClass === "bad" ? "border-color:var(--bad)" : "";
+        const info = match ? `${match["ÜRÜN"]||"—"} <span class="muted">/ ${match["KATEGORİ"]||"—"}</span>` : (r.wkod ? `<span style="color:var(--bad)">WKOD bulunamadı — kaydedilmeyecek</span>` : `<span class="muted">WKOD girin</span>`);
+        const isForeign = (r.currency || "TRY") !== "TRY";
+        const tl = computeCostTl(r);
+        return `<tr data-list="costs" data-i="${i}">
+          <td><input list="wkodOptions" data-field="wkod" value="${r.wkod||""}" style="${wkodBorder}"></td>
+          <td>${info}</td>
+          <td>${curSelect(r.currency||"TRY")}</td>
+          <td><input data-field="unitPrice" value="${r.unitPrice||""}" placeholder="${isForeign?"birim fiyat (döviz)":"TL tutar"}"></td>
+          <td>${isForeign ? `<input type="date" data-field="fxDate" value="${r.fxDate||todayIso()}">` : `<span class="muted">—</span>`}</td>
+          <td>${isForeign ? `<input data-field="fxRate" value="${r.fxRate||""}"><button type="button" class="secondary" data-fx="${i}" style="margin-top:6px;padding:4px 8px;font-size:11px;">Kur Çek</button>${r.fxNote?`<div class="muted" style="font-size:11px;margin-top:4px;">${r.fxNote}</div>`:""}` : `<span class="muted">1</span>`}</td>
+          <td>${monthSelect("monthFrom", r.monthFrom||mstate.month)} → ${monthSelect("monthTo", r.monthTo||mstate.month)}</td>
+          <td><strong>${fmtMoney(tl)}</strong></td>
+          <td><button class="danger" data-del="costs" data-i="${i}">Sil</button></td>
+        </tr>`;
+      }).join("");
     }
 
     function renderExpenses(e) {
@@ -257,6 +312,13 @@
       if (!e.sales.length) alerts.push(["warn", "Satış satırı girilmemiş."]);
       if (!e.expenses.some(r=>val(r.amount)>0)) alerts.push(["warn", "Bu ay için gider girilmemiş."]);
       if (!e.costs.length) alerts.push(["warn", "Ürün maliyet satırı girilmemiş."]);
+      e.costs.forEach((r,i)=>{
+        if (!String(r.wkod||"").trim()) { alerts.push(["bad", `Maliyet ${i+1}: WKOD boş.`]); return; }
+        if (!findCostRow(r.wkod)) { alerts.push(["bad", `Maliyet ${i+1}: WKOD "${r.wkod}" tanınmıyor, kaydedilmeyecek.`]); return; }
+        if (!val(r.unitPrice)) alerts.push(["warn", `Maliyet ${i+1}: fiyat girilmemiş.`]);
+        if ((r.currency||"TRY") !== "TRY" && !valRate(r.fxRate)) alerts.push(["bad", `Maliyet ${i+1}: döviz kuru yok, "Kur Çek" ile alın veya elle girin.`]);
+        if (Number(r.monthTo) < Number(r.monthFrom)) alerts.push(["warn", `Maliyet ${i+1}: bitiş ayı başlangıçtan önce, otomatik düzeltilecek.`]);
+      });
       if (!e.customers.length) alerts.push(["warn", "Müşteri ciro satırı girilmemiş."]);
       if (!alerts.length) alerts.push(["good", "Kontrol temiz. Onaylamaya hazır."]);
       if (mark) { e.status = alerts.some(a=>a[0]==="bad") ? "Kontrol Bekliyor" : "Kontrol Bekliyor"; }
@@ -267,7 +329,7 @@
 
     function exportPayload() {
       const e = entry(); const t = totals(e); const m = Number(mstate.month); const label = months[m-1];
-      const categoriesAgg = categories.map(c => {
+      const categoriesAgg = categoriesForYear(mstate.year).map(c => {
         const rows = e.sales.filter(r=>r.category===c);
         const ciro = rows.reduce((a,r)=>a+val(r.revenue),0); const maliyet = rows.reduce((a,r)=>a+val(r.cost),0); const adet = rows.reduce((a,r)=>a+val(r.qty),0); const kar = ciro-maliyet;
         return { name:c, adet, ciro, maliyet, kar, marj: ciro?kar/ciro:0 };
@@ -280,7 +342,7 @@
           yonPlusMonth: { month: m, label, total: { adet: e.sales.reduce((a,r)=>a+val(r.qty),0), ciro:t.revenue, maliyet:t.cost, kar:t.gross, marj:t.grossMargin }, categories: categoriesAgg },
           overviewPatch: { totalRevenue:t.revenue, totalCost:t.cost, grossProfit:t.gross, grossMargin:t.grossMargin, totalExpense:t.expense, profitBeforeTax:t.net, netProfit:t.net, netMargin:t.netMargin },
           topCustomers: e.customers.map((c,i)=>({ rank:i+1, name:c.name, revenue:val(c.revenue), share:t.revenue?val(c.revenue)/t.revenue:0 })),
-          costRows: e.costs.map(c=>({ WKOD:c.wkod, "ÜRÜN":c.product, "KALINLIK_BOY":c.dimension, "KATEGORİ":c.category, Currency:c.currency||"TRY", Base_Price:val(c.basePrice), selectedMonthCost:val(c.monthCost) })),
+          costRows: e.costs.map(c=>({ WKOD:c.wkod, Currency:c.currency||"TRY", unitPrice:val(c.unitPrice), fxDate:c.fxDate||"", fxRate:valRate(c.fxRate)||1, monthFrom:Number(c.monthFrom)||1, monthTo:Number(c.monthTo)||1, computedMonthlyTL:computeCostTl(c) })),
           expenseRows: e.expenses.map(x=>[x.name, val(x.amount), x.note||""])
         }
       };
@@ -316,17 +378,27 @@
         persistExpenseRowEdit(year, newRow);
       });
 
-      // 3) Ürün maliyeti (WKOD bazlı): sadece 2025/2026 destekleniyor (sistemin kendi yapısı gereği)
+      // 3) Ürün maliyeti (WKOD bazlı, tarih aralığı destekli): sadece 2025/2026 destekleniyor (sistemin kendi yapısı gereği)
       if (["2025", "2026"].includes(String(year))) {
+        const byWkod = new Map();
         e.costs.forEach(c => {
-          const wkod = String(c.wkod || "").trim();
-          if (!wkod) return;
-          const row = (DATA.costRows || []).find(r => String(r.WKOD) === wkod);
-          if (!row) return;
-          const target = String(year) === "2025" ? row.months25 : row.months26;
+          const match = findCostRow(c.wkod);
+          if (!match) return;
+          const wkod = String(match.WKOD);
+          const from = Math.min(Number(c.monthFrom) || 1, Number(c.monthTo) || 1);
+          const to = Math.max(Number(c.monthFrom) || 1, Number(c.monthTo) || 1);
+          const tl = computeCostTl(c);
+          if (!byWkod.has(wkod)) byWkod.set(wkod, []);
+          byWkod.get(wkod).push({ from, to, tl });
+        });
+        byWkod.forEach((ranges, wkod) => {
+          const sourceRow = findCostRow(wkod);
+          const target = String(year) === "2025" ? sourceRow.months25 : sourceRow.months26;
           if (!Array.isArray(target)) return;
           const monthValues = target.slice();
-          monthValues[month - 1] = val(c.monthCost);
+          ranges.forEach(({ from, to, tl }) => {
+            for (let m = from; m <= to; m += 1) monthValues[m - 1] = tl;
+          });
           persistCostRowEdit(year, wkod, monthValues);
         });
       }
@@ -352,11 +424,14 @@
       q("#year").onchange = e => { mstate.year = e.target.value; render(); };
       q("#month").onchange = e => { mstate.month = e.target.value; render(); };
       q("#addSale").onclick = () => { entry().sales.push({ category: categoriesForYear(mstate.year)[0] || "", product:"", wkod:"", qty:"", revenue:"", cost:"", note:"" }); render(); };
-      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", product:"", dimension:"", category: categoriesForYear(mstate.year)[0] || "", currency:"TRY", basePrice:"", monthCost:"" }); render(); };
+      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", currency:"TRY", unitPrice:"", fxDate: todayIso(), fxRate:"", monthFrom: mstate.month, monthTo: mstate.month }); render(); };
       q("#addExpense").onclick = () => { entry().expenses.push({ name: expenseLabelsForYear(mstate.year)[0] || "", amount:"", note:"" }); render(); };
       q("#addCustomer").onclick = () => { entry().customers.push({ name:"", revenue:"", note:"" }); render(); };
       document.body.addEventListener("input", onEdit); document.body.addEventListener("change", onEdit);
-      document.body.addEventListener("click", e => { const del = e.target.dataset.del; if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); } });
+      document.body.addEventListener("click", e => {
+        const del = e.target.dataset.del; if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); return; }
+        const fx = e.target.dataset.fx; if (fx !== undefined) { fetchFxRate(Number(fx)); }
+      });
       q("#checkBtn").onclick = () => { const e = entry(); renderAlerts(check(e, true)); saveDb(); render(); };
       q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Taslak kaydedildi (bu tarayıcıda). Henüz ana rapora işlenmedi."; };
       q("#approveBtn").onclick = commitToReports;
@@ -369,7 +444,16 @@
     function onEdit(ev) {
       const tr = ev.target.closest("tr[data-list]"); if (!tr || !ev.target.dataset.field) return;
       const e = entry(); const list = tr.dataset.list; const i = Number(tr.dataset.i); const field = ev.target.dataset.field;
-      e[list][i][field] = ev.target.value; e.status = "Taslak"; saveDb(); renderSummary(e); renderAlerts(check(e, false));
+      const row = e[list][i]; if (!row) return;
+      row[field] = ev.target.value; e.status = "Taslak"; saveDb();
+      if (list === "costs") {
+        if (field === "currency" && row.currency !== "TRY" && !row.fxDate) row.fxDate = todayIso();
+        if (field === "currency" && row.currency !== "TRY") { fetchFxRate(i); return; }
+        if (field === "fxDate" && row.currency !== "TRY") { fetchFxRate(i); return; }
+        render();
+        return;
+      }
+      renderSummary(e); renderAlerts(check(e, false));
     }
     init();
   </script>

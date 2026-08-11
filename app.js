@@ -328,8 +328,22 @@ function setAnnualInputsForYear(year, values) {
   saveAnnualInputs(all);
 }
 
+function normalizeCostRowKeys(costRows) {
+  return (costRows || []).map(row => ({
+    WKOD: row.WKOD,
+    "ÜRÜN": fixMojibakeText(row["ÜRÜN"] ?? row["ÃœRÃœN"] ?? ""),
+    KALINLIK_BOY: row.KALINLIK_BOY,
+    "KATEGORİ": canonicalCategoryName(fixMojibakeText(row["KATEGORİ"] ?? row["KATEGORÄ°"] ?? "")),
+    Base_Price: row.Base_Price,
+    Currency: row.Currency,
+    months25: row.months25,
+    months26: row.months26
+  }));
+}
+
 function hydrateData(base) {
   const data = cloneData(base);
+  data.costRows = normalizeCostRowKeys(data.costRows);
   canonicalizeCategoryNames(data);
   applyImportsToData(data, loadImports());
   canonicalizeCategoryNames(data);
