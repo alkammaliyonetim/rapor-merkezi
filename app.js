@@ -64,6 +64,7 @@ function fixMojibakeText(value) {
       .replaceAll("Åž", "Ş").replaceAll("ÅŸ", "ş")
       .replaceAll("Äž", "Ğ").replaceAll("ÄŸ", "ğ")
       .replaceAll("â€”", "—").replaceAll("â€¢", "•")
+      .replaceAll("Ã¢", "â").replaceAll("Ã‚", "Â")
       .replaceAll("Å", "Ş").replaceAll("Ä", "Ğ");
   }
   _mojibakeCache.set(text, result);
@@ -368,12 +369,46 @@ function normalizeMasterRows(masterRows) {
   return masterRows;
 }
 
+function normalizeControlLabels(data) {
+  Object.entries(data.controls || {}).forEach(([year, checks]) => {
+    const catSum = (data.years[year]?.categories || []).reduce((sum, c) => sum + safe(c.ciro), 0);
+    (checks || []).forEach(check => {
+      if (!check) return;
+      if (check.label) check.label = fixMojibakeText(check.label);
+      if (check.label === "Kategori toplam ciro = YÖN_RAPOR toplam ciro" && catSum) check.left = catSum;
+    });
+  });
+}
+
+function dedupeFasonCategories(yearsObj) {
+  Object.values(yearsObj || {}).forEach(yearData => {
+    const cats = yearData.categories;
+    if (!Array.isArray(cats)) return;
+    cats.forEach(fasonCat => {
+      const m = /^FASON\s+(.+)$/i.exec(String(fasonCat.name || "").trim());
+      if (!m) return;
+      const parent = cats.find(c => sameLabel(c.name, m[1]));
+      if (!parent || parent === fasonCat) return;
+      if (safe(parent.ciro) < safe(fasonCat.ciro)) return;
+      parent.ciro = safe(parent.ciro) - safe(fasonCat.ciro);
+      parent.adet = safe(parent.adet) - safe(fasonCat.adet);
+      if (parent.maliyet !== null && parent.maliyet !== undefined && fasonCat.maliyet) {
+        parent.maliyet = safe(parent.maliyet) - safe(fasonCat.maliyet);
+      }
+      parent.kar = parent.maliyet !== null && parent.maliyet !== undefined ? parent.ciro - parent.maliyet : null;
+      parent.marj = parent.ciro && parent.kar !== null ? parent.kar / parent.ciro : parent.marj;
+    });
+  });
+}
+
 function hydrateData(base) {
   const data = cloneData(base);
   data.costRows = normalizeCostRowKeys(data.costRows);
   data.masterRows = normalizeMasterRows(data.masterRows);
   normalizeExpenseRowLabels(data.years);
   canonicalizeCategoryNames(data);
+  dedupeFasonCategories(data.years);
+  normalizeControlLabels(data);
   applyImportsToData(data, loadImports());
   canonicalizeCategoryNames(data);
   applyExpenseEditsToData(data, loadExpenseEdits());
