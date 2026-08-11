@@ -341,9 +341,18 @@ function normalizeCostRowKeys(costRows) {
   }));
 }
 
+function normalizeExpenseRowLabels(yearsObj) {
+  Object.values(yearsObj || {}).forEach(yearData => {
+    (yearData.expenseRows || []).forEach(row => {
+      if (row && row[0]) row[0] = fixMojibakeText(row[0]);
+    });
+  });
+}
+
 function hydrateData(base) {
   const data = cloneData(base);
   data.costRows = normalizeCostRowKeys(data.costRows);
+  normalizeExpenseRowLabels(data.years);
   canonicalizeCategoryNames(data);
   applyImportsToData(data, loadImports());
   canonicalizeCategoryNames(data);
