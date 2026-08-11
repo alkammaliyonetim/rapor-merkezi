@@ -1,4 +1,5 @@
 
+const _mojibakeCache = new Map();
 const IMPORT_STORAGE_KEY = "raporMerkeziImportsV1";
 const ANNUAL_INPUT_STORAGE_KEY = "raporMerkeziAnnualInputsV1";
 const EXPENSE_EDIT_STORAGE_KEY = "raporMerkeziExpenseEditsV1";
@@ -49,18 +50,24 @@ function esc(value) {
 function fixMojibakeText(value) {
   const text = String(value ?? "");
   if (!/[ÃÄÅÂâ]/.test(text)) return text;
+  const cached = _mojibakeCache.get(text);
+  if (cached !== undefined) return cached;
+  let result;
   try {
-    return decodeURIComponent(escape(text));
+    result = decodeURIComponent(escape(text));
   } catch (error) {
-    return text
+    result = text
       .replaceAll("Ãœ", "Ü").replaceAll("Ã¼", "ü")
       .replaceAll("Ã‡", "Ç").replaceAll("Ã§", "ç")
       .replaceAll("Ã–", "Ö").replaceAll("Ã¶", "ö")
       .replaceAll("Ä°", "İ").replaceAll("Ä±", "ı")
       .replaceAll("Åž", "Ş").replaceAll("ÅŸ", "ş")
       .replaceAll("Äž", "Ğ").replaceAll("ÄŸ", "ğ")
-      .replaceAll("â€”", "—").replaceAll("â€¢", "•");
+      .replaceAll("â€”", "—").replaceAll("â€¢", "•")
+      .replaceAll("Å", "Ş").replaceAll("Ä", "Ğ");
   }
+  _mojibakeCache.set(text, result);
+  return result;
 }
 
 function repairRenderedText(root = document.body) {
@@ -346,12 +353,25 @@ function normalizeExpenseRowLabels(yearsObj) {
     (yearData.expenseRows || []).forEach(row => {
       if (row && row[0]) row[0] = fixMojibakeText(row[0]);
     });
+    (yearData.yonRapor?.topCustomers || []).forEach(c => {
+      if (c && c.name) c.name = fixMojibakeText(c.name);
+    });
   });
+}
+
+function normalizeMasterRows(masterRows) {
+  (masterRows || []).forEach(row => {
+    if (row.name) row.name = fixMojibakeText(row.name);
+    if (row.code) row.code = fixMojibakeText(row.code);
+    if (row.category) row.category = canonicalCategoryName(fixMojibakeText(row.category));
+  });
+  return masterRows;
 }
 
 function hydrateData(base) {
   const data = cloneData(base);
   data.costRows = normalizeCostRowKeys(data.costRows);
+  data.masterRows = normalizeMasterRows(data.masterRows);
   normalizeExpenseRowLabels(data.years);
   canonicalizeCategoryNames(data);
   applyImportsToData(data, loadImports());
@@ -1402,7 +1422,7 @@ function defaultUnitForCategory(category) {
 
 function normalizeSalesDetailRow(row) {
   let productCode = String(row.productCode ?? row.kod ?? "").trim();
-  const product = String(row.product ?? row.urun ?? "").trim();
+  const product = fixMojibakeText(String(row.product ?? row.urun ?? "").trim());
   const sourceFile = String(row.sourceFile || row.source || "İçe Aktarım").trim();
   let unit = String(row.unit ?? row.birim ?? "").trim();
   if (normalizeText(productCode).includes("STOK KARTI")) productCode = "";
@@ -1414,7 +1434,7 @@ function normalizeSalesDetailRow(row) {
     date: parseDateValue(row.date ?? row.tarih) || "",
     invoiceNo: String(row.invoiceNo ?? row.faturaNo ?? "").trim(),
     customerCode: String(row.customerCode ?? row.cariKodu ?? "").trim(),
-    customerName: String(row.customerName ?? row.unvan ?? "").trim(),
+    customerName: fixMojibakeText(String(row.customerName ?? row.unvan ?? "").trim()),
     productCode,
     product,
     unit: unit || defaultUnitForCategory(category),
@@ -1429,7 +1449,7 @@ function normalizePayrollDetailRow(row) {
   return {
     year: Number(row.year ?? 0),
     month: Number(row.month ?? 0),
-    employee: String(row.employee ?? row.name ?? "").trim(),
+    employee: fixMojibakeText(String(row.employee ?? row.name ?? "").trim()),
     gross: safe(row.gross ?? row.value),
     net: safe(row.net),
     base: safe(row.base),
@@ -3693,7 +3713,7 @@ function renderControl() {
     {
       key: "expenseRows",
       label: "Gider satirlari = Ozet toplam gider",
-      left: safe(currentYearData().expenseRows?.reduce((sum, row) => sum + safe(row?.[13]), 0)),
+      left: safe((currentYearData().expenseRows || DATA.expenseRows || []).reduce((sum, row) => sum + safe(row?.[13]), 0)),
       right: safe(currentYearData().overview?.totalExpense)
     },
     {
