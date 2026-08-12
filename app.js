@@ -7,13 +7,15 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "095820261208";
+const APP_VERSION_STAMP = "100120261208";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DETAIL_CACHE = null;
 let DATA = hydrateData(BASE_DATA);
 let lastExpenseEdit = null;
 let lastCostEdit = null;
+let lastLocalMutationAt = 0;
+let serverStateSignature = "";
 function latestAvailableYear() {
   const years = Object.keys(DATA.years || {}).sort((a, b) => Number(a) - Number(b));
   return years.length ? years[years.length - 1] : "2025";
@@ -164,12 +166,17 @@ function cloneData(value) {
 }
 
 function syncStateToServer(serverKey, value) {
-  fetch("/api/state", {
+  lastLocalMutationAt = Date.now();
+  return fetch("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key: serverKey, value })
+  }).then(response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return true;
   }).catch(error => {
     state.importLog.unshift(`Sunucu senkron hatasi (${serverKey}): ${error.message}`);
+    return false;
   });
 }
 
@@ -425,6 +432,63 @@ function hydrateData(base) {
   applyLinkedCustomerTotals(data);
   refreshLinkedControls(data);
   return data;
+}
+
+function stateSnapshotSignature(snapshot = {}) {
+  return JSON.stringify({
+    imports: snapshot.imports || {},
+    annualInputs: snapshot.annualInputs || {},
+    expenseEdits: snapshot.expenseEdits || {},
+    costEdits: snapshot.costEdits || {},
+    manualEdits: snapshot.manualEdits || {}
+  });
+}
+
+function applyServerStateSnapshot(server = {}) {
+  const storageByKey = {
+    imports: IMPORT_STORAGE_KEY,
+    annualInputs: ANNUAL_INPUT_STORAGE_KEY,
+    expenseEdits: EXPENSE_EDIT_STORAGE_KEY,
+    costEdits: COST_EDIT_STORAGE_KEY,
+    manualEdits: MANUAL_EDIT_STORAGE_KEY
+  };
+  const signature = stateSnapshotSignature(server);
+  if (!signature || signature === serverStateSignature) return false;
+  Object.entries(storageByKey).forEach(([key, storageKey]) => {
+    localStorage.setItem(storageKey, JSON.stringify(server[key] || {}));
+  });
+  serverStateSignature = signature;
+  DETAIL_CACHE = null;
+  DATA = hydrateData(BASE_DATA);
+  populateMonthSelect();
+  render();
+  return true;
+}
+
+async function pollServerState() {
+  if (Date.now() - lastLocalMutationAt < 5000 || document.hidden) return;
+  try {
+    const response = await fetch("/api/state", { cache: "no-store" });
+    if (!response.ok) return;
+    applyServerStateSnapshot(await response.json());
+  } catch (error) {
+    // Bağlantı kesildiğinde yerel veri çalışmaya devam eder; sonraki tur tekrar dener.
+  }
+}
+
+function startDynamicStateSync() {
+  window.addEventListener("storage", event => {
+    const tracked = [IMPORT_STORAGE_KEY, ANNUAL_INPUT_STORAGE_KEY, EXPENSE_EDIT_STORAGE_KEY, COST_EDIT_STORAGE_KEY, MANUAL_EDIT_STORAGE_KEY];
+    if (!tracked.includes(event.key)) return;
+    DETAIL_CACHE = null;
+    DATA = hydrateData(BASE_DATA);
+    populateMonthSelect();
+    render();
+  });
+  window.setInterval(pollServerState, 10000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) pollServerState();
+  });
 }
 
 function canonicalCategoryName(value) {
@@ -4963,6 +5027,7 @@ try {
   populateMonthSelect();
   bind();
   render();
+  startDynamicStateSync();
   bootstrapServerState().then(changed => {
     if (!changed) return;
     DATA = hydrateData(BASE_DATA);
