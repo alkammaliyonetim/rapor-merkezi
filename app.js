@@ -520,7 +520,7 @@ async function ensureDetailDataLoaded({ rerender = false } = {}) {
   });
   const loaded = await DETAIL_LOAD_PROMISE;
   if (rerender) {
-    DETAIL_CACHE = null;
+    recomputeData();
     render();
   }
   return loaded;
