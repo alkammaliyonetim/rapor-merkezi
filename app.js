@@ -7,9 +7,9 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "120820261835";
+const APP_VERSION_STAMP = "120820261920";
 const RAW_BASE_DATA = window.REPORT_DATA;
-const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
+let DETAIL_BASE = window.REPORT_DETAIL_DATA || { meta: { sources: {} }, sales: [], payroll: [], payrollExpenseRows: [] };
 const FX_MATRIX_CACHE = {};
 const STATE_STORAGE_MAP = {
   imports: IMPORT_STORAGE_KEY,
@@ -28,6 +28,7 @@ const APP_STATE_DEFAULTS = {
 let APP_STATE_CACHE = Object.fromEntries(Object.keys(APP_STATE_DEFAULTS).map(key => [key, JSON.parse(JSON.stringify(APP_STATE_DEFAULTS[key]))]));
 const APP_STATE_SYNC_TIMERS = {};
 let FX_MATRIX_PENDING = null;
+let DETAIL_LOAD_PROMISE = null;
 let DETAIL_CACHE = null;
 const BASE_DATA = buildCanonicalBaseData(RAW_BASE_DATA);
 let DATA = hydrateData(BASE_DATA);
@@ -478,6 +479,68 @@ function referenceCostRows() {
 
 function referenceExpenseRows(year = state.year) {
   return BASE_DATA?.years?.[String(year)]?.expenseRows || BASE_DATA?.expenseRows || [];
+}
+
+async function ensureDetailDataLoaded({ rerender = false } = {}) {
+  if (DETAIL_BASE?.sales?.length || window.REPORT_DETAIL_DATA) {
+    DETAIL_BASE = window.REPORT_DETAIL_DATA || DETAIL_BASE;
+    if (rerender) {
+      DETAIL_CACHE = null;
+      render();
+    }
+    return DETAIL_BASE;
+  }
+  if (DETAIL_LOAD_PROMISE) {
+    const loaded = await DETAIL_LOAD_PROMISE;
+    if (rerender) {
+      DETAIL_CACHE = null;
+      render();
+    }
+    return loaded;
+  }
+  DETAIL_LOAD_PROMISE = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `report-detail-data.js?v=${encodeURIComponent(APP_VERSION_STAMP)}`;
+    script.async = true;
+    script.onload = () => {
+      DETAIL_BASE = window.REPORT_DETAIL_DATA || { meta: { sources: {} }, sales: [], payroll: [], payrollExpenseRows: [] };
+      resolve(DETAIL_BASE);
+    };
+    script.onerror = () => reject(new Error("Detay veri dosyasi yuklenemedi."));
+    document.body.appendChild(script);
+  }).finally(() => {
+    DETAIL_LOAD_PROMISE = null;
+  });
+  const loaded = await DETAIL_LOAD_PROMISE;
+  if (rerender) {
+    DETAIL_CACHE = null;
+    render();
+  }
+  return loaded;
+}
+
+function prefetchDetailDataSoon() {
+  if (DETAIL_BASE?.sales?.length || DETAIL_LOAD_PROMISE) return;
+  const start = () => {
+    ensureDetailDataLoaded({ rerender: true }).catch(error => {
+      if (typeof console !== "undefined") console.warn("Detail data prefetch failed:", error.message);
+    });
+  };
+  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => start(), { timeout: 2000 });
+    return;
+  }
+  window.setTimeout(start, 600);
+}
+
+async function ensureDetailDataForInteraction() {
+  try {
+    if (!(await ensureDetailDataForInteraction())) return;
+    return true;
+  } catch (error) {
+    window.alert(`Detay veri katmani yuklenemedi: ${error.message}`);
+    return false;
+  }
 }
 
 function canonicalCategoryName(value) {
@@ -5346,10 +5409,11 @@ function render() {
 
 function bind() {
   qa(".menu-item").forEach(btn => btn.addEventListener("click", () => { state.view = btn.dataset.view; render(); }));
-  q("#incomeTable")?.addEventListener("click", e => {
+  q("#incomeTable")?.addEventListener("click", async e => {
     const cell = e.target.closest(".income-value");
     if (!cell) return;
     if (e.ctrlKey && saveManualIncomeCell(cell)) return;
+    if (!(await ensureDetailDataForInteraction())) return;
     const month = Number(cell.dataset.month);
     const item = cell.dataset.item || "";
     const kind = cell.dataset.kind || "sales";
@@ -5399,20 +5463,23 @@ function bind() {
     if (!btn) return;
     revertAuditEntry(btn.dataset.id);
   });
-  q("#customerBody")?.addEventListener("click", e => {
+  q("#customerBody")?.addEventListener("click", async e => {
     const row = e.target.closest("[data-customer]");
     if (!row) return;
+    if (!(await ensureDetailDataForInteraction())) return;
     const customer = row.dataset.customer || "";
     openCellDetail("Müşteri Satış Detayı", `${state.year} • ${customer}`, buildCustomerDetailPayload(customer));
   });
-  q("#controlList")?.addEventListener("click", e => {
+  q("#controlList")?.addEventListener("click", async e => {
     const item = e.target.closest("[data-check]");
     if (!item) return;
+    if (!(await ensureDetailDataForInteraction())) return;
     openCellDetail("Kontrol Fark Detayı", item.dataset.label || "Kontrol", buildControlDetailPayload(item.dataset.check, item.dataset.label || "Kontrol"));
   });
-  q("#overviewConfidence")?.addEventListener("click", e => {
+  q("#overviewConfidence")?.addEventListener("click", async e => {
     const item = e.target.closest("[data-check]");
     if (!item) return;
+    await ensureDetailDataLoaded();
     openCellDetail("Kontrol Fark Detayi", item.dataset.label || "Kontrol", buildControlDetailPayload(item.dataset.check, item.dataset.label || "Kontrol"));
   });
   const yearSelect = q("#yearSelect");
@@ -5582,6 +5649,7 @@ try {
   populateMonthSelect();
   bind();
   render();
+  prefetchDetailDataSoon();
   bootstrapServerState().then(changed => {
     if (!changed) return;
     recomputeData();
