@@ -7,10 +7,26 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "120820261615";
+const APP_VERSION_STAMP = "120820261720";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 const FX_MATRIX_CACHE = {};
+const STATE_STORAGE_MAP = {
+  imports: IMPORT_STORAGE_KEY,
+  annualInputs: ANNUAL_INPUT_STORAGE_KEY,
+  expenseEdits: EXPENSE_EDIT_STORAGE_KEY,
+  costEdits: COST_EDIT_STORAGE_KEY,
+  manualEdits: MANUAL_EDIT_STORAGE_KEY
+};
+const APP_STATE_DEFAULTS = {
+  imports: { salesRows: [], expenseRows: [], payrollRows: [], files: [] },
+  annualInputs: {},
+  expenseEdits: {},
+  costEdits: {},
+  manualEdits: {}
+};
+let APP_STATE_CACHE = Object.fromEntries(Object.keys(APP_STATE_DEFAULTS).map(key => [key, JSON.parse(JSON.stringify(APP_STATE_DEFAULTS[key]))]));
+const APP_STATE_SYNC_TIMERS = {};
 let FX_MATRIX_PENDING = null;
 let DETAIL_CACHE = null;
 let DATA = hydrateData(BASE_DATA);
@@ -165,14 +181,70 @@ function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function defaultAppStateValue(key) {
+  return cloneData(APP_STATE_DEFAULTS[key] ?? {});
+}
+
+function normalizeImportsState(value) {
+  const parsed = value && typeof value === "object" ? value : {};
+  return {
+    salesRows: Array.isArray(parsed.salesRows) ? parsed.salesRows : [],
+    expenseRows: Array.isArray(parsed.expenseRows) ? parsed.expenseRows : [],
+    payrollRows: Array.isArray(parsed.payrollRows) ? parsed.payrollRows : [],
+    files: Array.isArray(parsed.files) ? parsed.files : []
+  };
+}
+
+function normalizeAppStateValue(key, value) {
+  if (key === "imports") return normalizeImportsState(value);
+  if (value && typeof value === "object") return value;
+  return defaultAppStateValue(key);
+}
+
+function readLocalStateKey(key) {
+  const storageKey = STATE_STORAGE_MAP[key];
+  if (!storageKey) return defaultAppStateValue(key);
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return defaultAppStateValue(key);
+    return normalizeAppStateValue(key, JSON.parse(raw));
+  } catch (error) {
+    return defaultAppStateValue(key);
+  }
+}
+
+function writeLocalStateKey(key, value) {
+  const storageKey = STATE_STORAGE_MAP[key];
+  if (!storageKey) return;
+  localStorage.setItem(storageKey, JSON.stringify(value));
+}
+
+function getAppState(key) {
+  if (!Object.prototype.hasOwnProperty.call(APP_STATE_CACHE, key)) {
+    APP_STATE_CACHE[key] = readLocalStateKey(key);
+  }
+  return APP_STATE_CACHE[key];
+}
+
+function setAppState(key, value, { sync = true } = {}) {
+  const normalized = normalizeAppStateValue(key, value);
+  APP_STATE_CACHE[key] = normalized;
+  writeLocalStateKey(key, normalized);
+  if (sync) syncStateToServer(key, normalized);
+  return normalized;
+}
+
 function syncStateToServer(serverKey, value) {
-  fetch("/api/state", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: serverKey, value })
-  }).catch(error => {
-    state.importLog.unshift(`Sunucu senkron hatasi (${serverKey}): ${error.message}`);
-  });
+  clearTimeout(APP_STATE_SYNC_TIMERS[serverKey]);
+  APP_STATE_SYNC_TIMERS[serverKey] = setTimeout(() => {
+    fetch("/api/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: serverKey, value })
+    }).catch(error => {
+      state.importLog.unshift(`Sunucu senkron hatasi (${serverKey}): ${error.message}`);
+    });
+  }, 200);
 }
 
 function logAudit({ action_type, entity, year = state.year, month = null, old_value = null, new_value = null, note = null }) {
@@ -186,38 +258,25 @@ function logAudit({ action_type, entity, year = state.year, month = null, old_va
 }
 
 async function bootstrapServerState() {
-  const localKeyByServerKey = {
-    imports: IMPORT_STORAGE_KEY,
-    annualInputs: ANNUAL_INPUT_STORAGE_KEY,
-    expenseEdits: EXPENSE_EDIT_STORAGE_KEY,
-    costEdits: COST_EDIT_STORAGE_KEY,
-    manualEdits: MANUAL_EDIT_STORAGE_KEY
-  };
-  const localLoaders = {
-    imports: loadImports,
-    annualInputs: loadAnnualInputs,
-    expenseEdits: loadExpenseEdits,
-    costEdits: loadCostEdits,
-    manualEdits: loadManualEdits
-  };
+  const stateKeys = Object.keys(STATE_STORAGE_MAP);
   const isFilled = value => value && typeof value === "object" && Object.keys(value).length > 0;
   try {
     const res = await fetch("/api/state");
     if (!res.ok) return false;
     const server = await res.json();
-    const hasServerData = Object.keys(localKeyByServerKey).some(key => isFilled(server[key]));
+    const hasServerData = stateKeys.some(key => isFilled(server[key]));
     if (hasServerData) {
       let changed = false;
-      Object.entries(localKeyByServerKey).forEach(([serverKey, storageKey]) => {
-        if (isFilled(server[serverKey])) {
-          localStorage.setItem(storageKey, JSON.stringify(server[serverKey]));
-          changed = true;
-        }
+      stateKeys.forEach(serverKey => {
+        const nextValue = isFilled(server[serverKey]) ? server[serverKey] : readLocalStateKey(serverKey);
+        const previous = JSON.stringify(getAppState(serverKey));
+        setAppState(serverKey, nextValue, { sync: false });
+        if (JSON.stringify(nextValue) !== previous) changed = true;
       });
       return changed;
     }
     const localSnapshot = {};
-    Object.entries(localLoaders).forEach(([serverKey, loader]) => { localSnapshot[serverKey] = loader(); });
+    stateKeys.forEach(serverKey => { localSnapshot[serverKey] = readLocalStateKey(serverKey); });
     const hasLocalData = Object.values(localSnapshot).some(isFilled);
     if (hasLocalData) {
       await Promise.all(Object.entries(localSnapshot).map(([serverKey, value]) =>
@@ -228,6 +287,7 @@ async function bootstrapServerState() {
         })
       ));
     }
+    stateKeys.forEach(serverKey => setAppState(serverKey, localSnapshot[serverKey], { sync: false }));
     return false;
   } catch (error) {
     return false;
@@ -235,88 +295,43 @@ async function bootstrapServerState() {
 }
 
 function loadImports() {
-  try {
-    const raw = localStorage.getItem(IMPORT_STORAGE_KEY);
-    if (!raw) return { salesRows: [], expenseRows: [], payrollRows: [] };
-    const parsed = JSON.parse(raw);
-    return {
-      salesRows: Array.isArray(parsed.salesRows) ? parsed.salesRows : [],
-      expenseRows: Array.isArray(parsed.expenseRows) ? parsed.expenseRows : [],
-      payrollRows: Array.isArray(parsed.payrollRows) ? parsed.payrollRows : [],
-      files: Array.isArray(parsed.files) ? parsed.files : []
-    };
-  } catch (error) {
-    return { salesRows: [], expenseRows: [], payrollRows: [], files: [] };
-  }
+  return normalizeImportsState(getAppState("imports"));
 }
 
 function saveImports(imports) {
-  localStorage.setItem(IMPORT_STORAGE_KEY, JSON.stringify(imports));
-  syncStateToServer("imports", imports);
+  setAppState("imports", imports);
 }
 
 function loadExpenseEdits() {
-  try {
-    const raw = localStorage.getItem(EXPENSE_EDIT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (error) {
-    return {};
-  }
+  return normalizeAppStateValue("expenseEdits", getAppState("expenseEdits"));
 }
 
 function saveExpenseEdits(edits) {
-  localStorage.setItem(EXPENSE_EDIT_STORAGE_KEY, JSON.stringify(edits));
-  syncStateToServer("expenseEdits", edits);
+  setAppState("expenseEdits", edits);
 }
 
 function loadCostEdits() {
-  try {
-    const raw = localStorage.getItem(COST_EDIT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (error) {
-    return {};
-  }
+  return normalizeAppStateValue("costEdits", getAppState("costEdits"));
 }
 
 function saveCostEdits(edits) {
-  localStorage.setItem(COST_EDIT_STORAGE_KEY, JSON.stringify(edits));
-  syncStateToServer("costEdits", edits);
+  setAppState("costEdits", edits);
 }
 
 function loadManualEdits() {
-  try {
-    const raw = localStorage.getItem(MANUAL_EDIT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (error) {
-    return {};
-  }
+  return normalizeAppStateValue("manualEdits", getAppState("manualEdits"));
 }
 
 function saveManualEdits(edits) {
-  localStorage.setItem(MANUAL_EDIT_STORAGE_KEY, JSON.stringify(edits));
-  syncStateToServer("manualEdits", edits);
+  setAppState("manualEdits", edits);
 }
 
 function loadAnnualInputs() {
-  try {
-    const raw = localStorage.getItem(ANNUAL_INPUT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (error) {
-    return {};
-  }
+  return normalizeAppStateValue("annualInputs", getAppState("annualInputs"));
 }
 
 function saveAnnualInputs(values) {
-  localStorage.setItem(ANNUAL_INPUT_STORAGE_KEY, JSON.stringify(values));
-  syncStateToServer("annualInputs", values);
+  setAppState("annualInputs", values);
 }
 
 function annualInputsForYear(year = state.year) {
@@ -5247,7 +5262,7 @@ async function importEditWorkbookFile(file) {
 }
 
 function clearImports() {
-  localStorage.removeItem(IMPORT_STORAGE_KEY);
+  saveImports(defaultAppStateValue("imports"));
   DATA = hydrateData(BASE_DATA);
   DETAIL_CACHE = null;
   state.importLog.unshift("Yerel içe aktarım verisi temizlendi.");
