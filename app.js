@@ -2838,7 +2838,7 @@ function renderOverview() {
     } else if (cls.includes("cat-")) {
       labelHtml = renderRankedLabel(labelText, salesRank);
     }
-    rows.push(`<tr class="${cls}"><th>${labelHtml}</th><td class="trend">${section}</td>${cells}<td class="year-total">${totalText}</td></tr>`);
+    rows.push(`<tr class="${cls}"><th><span class="income-row-label">${labelHtml}</span></th><td class="trend">${section}</td>${cells}<td class="year-total">${totalText}</td></tr>`);
   };
 
   rows.push(`<tr class="section-row sales-section"><th>Satışlar</th><td></td>${months.map(() => "<td></td>").join("")}<td></td></tr>`);
