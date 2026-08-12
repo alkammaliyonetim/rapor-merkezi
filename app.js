@@ -2491,14 +2491,80 @@ function yearSumForMonths(yearData, months) {
     expense += yearData ? expenseMonthTotal(yearData, m) : 0;
   });
   const netProfit = grossProfit - expense;
-  return { totalRevenue: revenue, totalCost: cost, grossProfit, totalExpense: expense, netProfit, netMargin: revenue ? netProfit / revenue : 0 };
+  return { totalRevenue: revenue, totalCost: cost, grossProfit, grossMargin: revenue ? grossProfit / revenue : 0, totalExpense: expense, netProfit, netMargin: revenue ? netProfit / revenue : 0 };
 }
 
 function activeMonthsOf(yearData) {
   return (yearData?.yonPlus || []).filter(m => safe(m.total?.ciro) > 0).map(m => m.month).sort((a, b) => a - b);
 }
 
+function buildYearCompareTable() {
+  const years = Object.keys(DATA.years || {}).sort((a, b) => Number(a) - Number(b));
+  if (!years.length) return "";
+  const perYear = years.map(y => {
+    const yd = DATA.years[y];
+    const activeMonths = activeMonthsOf(yd);
+    const isFullYear = activeMonths.length === 12;
+    const sum = isFullYear ? (yd.overview || {}) : yearSumForMonths(yd, activeMonths);
+    return { year: y, sum, monthCount: activeMonths.length, isFullYear };
+  });
+  const summaryRows = [
+    { label: "Ciro", key: "totalRevenue", fmt: "money" },
+    { label: "Brüt Kâr", key: "grossProfit", fmt: "money" },
+    { label: "Brüt Marj", key: "grossMargin", fmt: "pct" },
+    { label: "Toplam Gider", key: "totalExpense", fmt: "money" },
+    { label: "Net Kâr", key: "netProfit", fmt: "money" },
+    { label: "Net Marj", key: "netMargin", fmt: "pct" }
+  ];
+  const categoryNames = [];
+  perYear.forEach(({ year }) => {
+    (DATA.years[year].categories || []).forEach(c => {
+      if (!categoryNames.includes(c.name)) categoryNames.push(c.name);
+    });
+  });
+  const knownOrder = ["MDF", "FASON MDF", "SUNTA", "FASON SUNTA", "KAPLAMA", "KENAR BANT", "ÇARŞAF", "İŞÇİLİK", "DİĞER"];
+  categoryNames.sort((a, b) => {
+    const ia = knownOrder.indexOf(a), ib = knownOrder.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b, "tr");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  const headerCells = perYear.map(({ year, monthCount, isFullYear }) => `
+    <th>${esc(year)}${isFullYear ? "" : `<div class="year-compare-partial">${monthCount} ay</div>`}</th>
+  `).join("");
+
+  const summaryHtml = summaryRows.map(row => `
+    <tr>
+      <th>${esc(row.label)}</th>
+      ${perYear.map(({ sum }) => `<td>${row.fmt === "pct" ? pct(sum[row.key]) : money(sum[row.key])}</td>`).join("")}
+    </tr>
+  `).join("");
+
+  const categoryHtml = categoryNames.map(name => {
+    const cells = perYear.map(({ year }) => {
+      const cat = (DATA.years[year].categories || []).find(c => c.name === name);
+      return `<td>${cat ? money(cat.ciro) : "—"}</td>`;
+    }).join("");
+    const isFason = name.startsWith("FASON");
+    return `<tr${isFason ? ' class="year-compare-fason"' : ""}><th>${esc(name)}</th>${cells}</tr>`;
+  }).join("");
+
+  return `
+    <thead>
+      <tr><th>2023-${years[years.length - 1]}</th>${headerCells}</tr>
+    </thead>
+    <tbody>
+      ${summaryHtml}
+      <tr class="year-compare-divider"><th colspan="${years.length + 1}">Kategori Ciroları</th></tr>
+      ${categoryHtml}
+    </tbody>
+  `;
+}
+
 function renderStrategic() {
+  q("#yearCompareTable").innerHTML = buildYearCompareTable();
   const yearData = currentYearData();
   const prevYearKey = String(Number(state.year) - 1);
   const prevYearData = DATA.years[prevYearKey];
