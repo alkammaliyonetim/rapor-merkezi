@@ -85,8 +85,15 @@ function fixMojibakeText(value) {
       .replaceAll("Äž", "Ğ").replaceAll("ÄŸ", "ğ")
       .replaceAll("â€”", "—").replaceAll("â€¢", "•")
       .replaceAll("Ã¢", "â").replaceAll("Ã‚", "Â")
+      .replaceAll("Å" + String.fromCharCode(0x9e), "Ş")
+      .replaceAll("Ä" + String.fromCharCode(0x9f), "ğ")
       .replaceAll("Å", "Ş").replaceAll("Ä", "Ğ");
   }
+  // Kaynak veride, cift-encode mojibake duzeltmesinin (yukarida) yakalayamadigi
+  // baglamlarda, Turkce harfin ikinci UTF-8 baytinin tek basina Latin-1 C1 kontrol
+  // karakterine (U+0080-U+009F) donustugu satirlar kaliyor; ekranda bos kutu (tofu)
+  // olarak gorunuyorlar. Bunlarin metinde hicbir mesru anlami yok, guvenle silinir.
+  result = result.replace(/[\u0080-\u009f]/g, "");
   _mojibakeCache.set(text, result);
   return result;
 }
