@@ -2500,8 +2500,8 @@ function buildIncomeHistoryHtml(kind, month, itemName = "", format = "money", un
   return `
     <div class="income-history">
       ${historyRows.map(row => `
-        <span class="income-history-line ${row.covered ? "" : "muted"}">
-          <span class="income-history-year">${esc(row.year)}</span>
+        <span class="income-history-line ${row.covered ? "" : "muted"}" title="${esc(row.year)} aynı ay">
+          <span class="income-history-year">${esc(String(row.year).slice(-2))}</span>
           <span class="income-history-value">${esc(row.text)}</span>
         </span>
       `).join("")}
@@ -2594,8 +2594,10 @@ function showIncomeHoverTip(cell, event) {
     <div class="tip-metrics">
       ${lines.slice(1).map((line, index) => {
         const [label, ...rest] = line.split(":");
+        const trimmedLabel = String(label || "").trim();
+        const rowClass = index === 0 ? "current" : (/^\d{4}/.test(trimmedLabel) ? "history" : "");
         return `
-          <div class="tip-row ${index === 0 ? "current" : ""}">
+          <div class="tip-row ${rowClass}">
             <span class="tip-label">${esc(label || "")}</span>
             <span class="tip-value">${esc(rest.join(":").trim())}</span>
           </div>`;
@@ -2664,28 +2666,32 @@ function renderOverviewSummaryBar() {
 
   overview.innerHTML = `
     <div class="overview-bar ${summary.status}">
-      <div class="overview-bar-row">
+      <div class="overview-bar-row overview-bar-main">
         <div class="overview-brand-lockup">
           <img class="overview-logo" src="assets/woodlent-logo.png" alt="Woodlent" />
-          <div class="overview-bar-title">
-            <strong>${state.year}</strong>
-            <span>${esc(headline)}</span>
+          <div class="overview-title-stack">
+            <div class="overview-bar-title">
+              <strong>${state.year}</strong>
+              <span>${esc(headline)}</span>
+            </div>
+            ${metaItems.length ? `
+              <div class="overview-bar-meta overview-bar-meta-tight">
+                ${metaItems.map(item => `<span>${esc(item)}</span>`).join("")}
+              </div>
+            ` : ""}
           </div>
         </div>
-        <div class="overview-bar-pills">
-          ${pills.map(item => `<span class="overview-pill ${item.tone}">${esc(item.label)}</span>`).join("")}
+        <div class="overview-bar-side">
+          <div class="overview-bar-pills">
+            ${pills.map(item => `<span class="overview-pill ${item.tone}">${esc(item.label)}</span>`).join("")}
+          </div>
+          ${followUps.length ? `
+            <div class="overview-bar-alerts">
+              ${followUps.map(followPill).join("")}
+            </div>
+          ` : ""}
         </div>
       </div>
-      ${(metaItems.length || followUps.length) ? `
-        <div class="overview-bar-row overview-bar-sub">
-          <div class="overview-bar-meta">
-            ${metaItems.map(item => `<span>${esc(item)}</span>`).join("")}
-          </div>
-          <div class="overview-bar-alerts">
-            ${followUps.map(followPill).join("")}
-          </div>
-        </div>
-      ` : ""}
     </div>
   `;
 }
