@@ -14,6 +14,8 @@ let DETAIL_CACHE = null;
 let DATA = hydrateData(BASE_DATA);
 let lastExpenseEdit = null;
 let lastCostEdit = null;
+const FX_MATRIX_CACHE = {};
+let FX_MATRIX_PENDING = null;
 function latestAvailableYear() {
   const years = Object.keys(DATA.years || {}).sort((a, b) => Number(a) - Number(b));
   return years.length ? years[years.length - 1] : "2025";
@@ -416,6 +418,7 @@ function hydrateData(base) {
   canonicalizeCategoryNames(data);
   applyExpenseEditsToData(data, loadExpenseEdits());
   applyManualEditsToData(data, loadManualEdits());
+  applyDerivedCostMatrix(data);
   const costDependencyBaseline = {
     costRows: cloneData(data.costRows),
     masterRows: cloneData(data.masterRows)
@@ -3615,6 +3618,80 @@ function normalizeCurrency(value) {
   return text || "TL";
 }
 
+function monthStartDatesForYear(year) {
+  return Array.from({ length: 12 }, (_, idx) => `${year}-${String(idx + 1).padStart(2, "0")}-01`);
+}
+
+function hasMissingDerivedCostMonths(row, year) {
+  const months = costMonthsForYear(row, year);
+  if (!Array.isArray(months)) return false;
+  const currency = normalizeCurrency(row?.Currency);
+  const basePrice = safe(row?.Base_Price);
+  if (!basePrice) return false;
+  if (!["USD", "EUR", "TL", "TRY"].includes(currency)) return false;
+  return months.some(value => value === null || value === undefined || value === "");
+}
+
+function monthRateFor(currency, year, monthIndex) {
+  const yearMatrix = FX_MATRIX_CACHE[String(year)] || {};
+  const currencyMatrix = yearMatrix[normalizeCurrency(currency)] || [];
+  return safe(currencyMatrix[monthIndex]?.rate);
+}
+
+function derivedMonthlyCost(row, year, monthIndex) {
+  const currency = normalizeCurrency(row?.Currency);
+  const basePrice = safe(row?.Base_Price);
+  if (!basePrice) return null;
+  if (currency === "TL" || currency === "TRY") return basePrice;
+  const rate = monthRateFor(currency, year, monthIndex);
+  if (!rate) return null;
+  return basePrice * rate;
+}
+
+function applyDerivedCostMatrix(data) {
+  (data?.costRows || []).forEach(row => {
+    ["2025", "2026"].forEach(year => {
+      const months = costMonthsForYear(row, year);
+      if (!Array.isArray(months)) return;
+      for (let idx = 0; idx < 12; idx += 1) {
+        if (months[idx] !== null && months[idx] !== undefined && months[idx] !== "") continue;
+        const derived = derivedMonthlyCost(row, year, idx);
+        if (derived === null) continue;
+        months[idx] = derived;
+      }
+    });
+  });
+}
+
+async function ensureFxMatrixForYear(year = state.year) {
+  const yearKey = String(year);
+  if (FX_MATRIX_CACHE[yearKey]) return FX_MATRIX_CACHE[yearKey];
+  if (!FX_MATRIX_PENDING) FX_MATRIX_PENDING = {};
+  if (FX_MATRIX_PENDING[yearKey]) return FX_MATRIX_PENDING[yearKey];
+  const candidateRows = (BASE_DATA?.costRows || []).filter(row => hasMissingDerivedCostMonths(row, yearKey));
+  const currencies = [...new Set(candidateRows.map(row => normalizeCurrency(row.Currency)).filter(currency => currency && currency !== "TL" && currency !== "TRY"))];
+  if (!currencies.length) {
+    FX_MATRIX_CACHE[yearKey] = {};
+    return FX_MATRIX_CACHE[yearKey];
+  }
+  FX_MATRIX_PENDING[yearKey] = fetch(`/api/fxmatrix?year=${encodeURIComponent(yearKey)}&currencies=${encodeURIComponent(currencies.join(","))}`)
+    .then(async response => {
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Kur matrisi alınamadı");
+      FX_MATRIX_CACHE[yearKey] = payload.matrix || {};
+      return FX_MATRIX_CACHE[yearKey];
+    })
+    .catch(error => {
+      if (typeof console !== "undefined") console.warn("FX matrix load failed:", error.message);
+      FX_MATRIX_CACHE[yearKey] = FX_MATRIX_CACHE[yearKey] || {};
+      return FX_MATRIX_CACHE[yearKey];
+    })
+    .finally(() => {
+      delete FX_MATRIX_PENDING[yearKey];
+    });
+  return FX_MATRIX_PENDING[yearKey];
+}
+
 function currencyRateLabel(row) {
   const pb = String(row.currency || "").toUpperCase();
   if (row.exchangeRate === null) return "—";
@@ -5166,6 +5243,10 @@ function bind() {
     state.expenseSortDir = "desc";
     populateMonthSelect();
     render();
+    ensureFxMatrixForYear(state.year).then(() => {
+      DATA = hydrateData(BASE_DATA);
+      render();
+    });
   });
 
   q("#monthSelect").addEventListener("change", e => {
@@ -5322,6 +5403,11 @@ try {
     if (!changed) return;
     DATA = hydrateData(BASE_DATA);
     state.year = latestAvailableYear();
+    populateMonthSelect();
+    render();
+  });
+  ensureFxMatrixForYear(state.year).then(() => {
+    DATA = hydrateData(BASE_DATA);
     populateMonthSelect();
     render();
   });
