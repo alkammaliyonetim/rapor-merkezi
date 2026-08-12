@@ -3914,6 +3914,101 @@ function buildCostFormulaPayload(row, monthNo) {
   };
 }
 
+function buildCostFormulaPayload(row, monthNo) {
+  const monthIndex = Math.max(0, Number(monthNo) - 1);
+  const value = safe(row.monthValues?.[monthIndex]);
+  const basePrice = safe(row.basePrice);
+  const currency = normalizeCurrency(row.currency);
+  const rate = impliedExchangeRate(basePrice, value, currency);
+  const sourceRow = DATA.costRows.find(item => String(item?.WKOD ?? "") === String(row.wkod));
+  const sourceCategory = canonicalCategoryName(String(sourceRow?.["KATEGORİ"] ?? sourceRow?.["KATEGORÄ°"] ?? row.category ?? ""));
+  const edited = isCostCellEdited(row.wkod, monthIndex, value);
+  const originalValue = sourceCostValue(row.wkod, monthIndex);
+  const kaplamaSource = sourceCategory === "KAP1KAP2" ? matchedKaplamaSourceRow(sourceRow, DATA) : null;
+  const kaplamaRatio = kaplamaSource ? kap1Kap2Ratio(sourceRow, kaplamaSource) : null;
+  const kaplamaMonths = kaplamaSource ? costMonthsForYear(kaplamaSource, state.year) : null;
+  const kaplamaValue = kaplamaSource ? safe(kaplamaMonths?.[monthIndex]) : null;
+  const matrixRate = monthRateFor(currency, state.year, monthIndex);
+  const points = (row.monthValues || []).map((cost, idx) => ({ month: idx + 1, label: monthLabels[idx + 1], cost: safe(cost) }));
+  const first = points.find(point => point.cost > 0) || points[monthIndex] || { month: monthNo, label: monthLabels[monthNo], cost: 0 };
+  const selected = points[monthIndex] || { month: monthNo, label: monthLabels[monthNo], cost: value };
+  const delta = selected.cost - first.cost;
+  const deltaPct = first.cost ? delta / first.cost : null;
+  const baseFormula = currency === "TL"
+    ? `TL ürün: aylık maliyet doğrudan ${money(value)} olarak alınır.`
+    : `${currency} baz fiyat ${num(basePrice, 4)} x kullanılan kur ${rate === null ? "—" : num(rate, 4)} = ${money(value)}`;
+  let costingRule = "Kaynak dosyadaki aylık maliyet doğrudan kullanıldı.";
+  let sourceLabel = "Kaynak aylık veri";
+  let detailedFormula = baseFormula;
+  if (edited) {
+    costingRule = "Bu hücre manuel override edildi.";
+    sourceLabel = "Manuel değişiklik";
+    detailedFormula = `Mevcut değer ${money(value)} olarak elle kaydedildi. Kaynak değer ${originalValue === null ? "bulunamadı" : money(originalValue)}.`;
+  } else if (sourceCategory === "KAP1KAP2" && kaplamaSource && kaplamaRatio) {
+    costingRule = "KAP1KAP2 maliyeti, eşleşen KAPLAMA satırından sabit çarpanla türetilir.";
+    sourceLabel = `KAPLAMA kaynağı: ${String(kaplamaSource?.WKOD ?? "—")} • ${formatCostProduct(kaplamaSource)}`;
+    detailedFormula = `${String(kaplamaSource?.WKOD ?? "—")} kaynak maliyeti ${kaplamaValue === null ? "—" : money(kaplamaValue)} x sabit çarpan ${num(kaplamaRatio, 6)} = ${money(value)}`;
+  } else if (basePrice && ["USD", "EUR"].includes(currency) && matrixRate) {
+    costingRule = "Dövizli hammadde maliyeti aylık kur matrisiyle üretilir.";
+    sourceLabel = "Base Price + aylık döviz kuru";
+    detailedFormula = `${currency} baz fiyat ${num(basePrice, 4)} x ${selected.label} kuru ${num(matrixRate, 4)} = ${money(value)}`;
+  } else if (basePrice && ["TL", "TRY"].includes(currency)) {
+    costingRule = "TL hammadde maliyeti baz fiyatın doğrudan aya uygulanmasıdır.";
+    sourceLabel = "Base Price doğrudan";
+    detailedFormula = `TL baz fiyat ${money(basePrice)} = ${money(value)}`;
+  }
+  const monthRows = points.map(point => ({
+    month: `${point.label} ${String(state.year).slice(-2)}`,
+    cost: point.cost,
+    rate: impliedExchangeRate(basePrice, point.cost, currency),
+    delta: point.cost - first.cost,
+    deltaPct: first.cost ? (point.cost - first.cost) / first.cost : null
+  }));
+  return {
+    stats: [
+      { label: "WKOD", value: row.wkod },
+      { label: "Ürün", value: row.formattedProduct || row.product },
+      { label: "Maliyetleme Kuralı", value: costingRule },
+      { label: "Seçili Ay Maliyeti", value: money(value) },
+      { label: "Kullanılan Kur", value: rate === null ? "—" : num(rate, 4) },
+      { label: "İlk Dolu Ay", value: `${first.label} ${money(first.cost)}` },
+      { label: "Eskalasyon", value: `${money(delta)} / ${pct(deltaPct)}` }
+    ],
+    insights: [
+      {
+        title: "Hesap Formülü",
+        kind: "text",
+        items: [
+          { label: "Maliyetleme Yöntemi", value: costingRule },
+          { label: "Kaynak", value: sourceLabel },
+          { label: "Base Price", value: `${num(basePrice, 4)} ${currency}` },
+          { label: "Kur Mantığı", value: currency === "TL" ? "Kur 1,0000 kabul edilir" : "Kur = aylık TL maliyet / base price" },
+          { label: "Formül", value: detailedFormula }
+        ]
+      },
+      {
+        title: "Eskalasyon",
+        kind: "text",
+        items: [
+          { label: "Referans", value: `${first.label} ${money(first.cost)}` },
+          { label: "Seçili Ay", value: `${selected.label} ${money(selected.cost)}` },
+          { label: "Fark", value: `${money(delta)} (${pct(deltaPct)})` }
+        ]
+      }
+    ],
+    columns: [
+      { key: "month", label: "Ay" },
+      { key: "cost", label: "Maliyet", format: "money" },
+      { key: "rate", label: "Kur", format: "rate" },
+      { key: "delta", label: "İlk Aya Göre TL", format: "money" },
+      { key: "deltaPct", label: "İlk Aya Göre %", format: "pct" }
+    ],
+    rows: monthRows,
+    note: "Bu kart, seçili maliyet hücresinin hangi kuralla oluştuğunu açıklar: manuel override, dövizli baz fiyat, TL baz fiyat veya KAP1KAP2 için KAPLAMA kaynak çarpanı.",
+    emptyMessage: "Bu hammadde için aylık maliyet satırı bulunamadı."
+  };
+}
+
 function updateCostCell(wkod, monthIndex, rawValue, rerender = false) {
   const nextValue = nullableNumber(rawValue);
   if (nextValue === null) return;
