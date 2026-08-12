@@ -7,8 +7,8 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "120820261720";
-const BASE_DATA = window.REPORT_DATA;
+const APP_VERSION_STAMP = "120820261835";
+const RAW_BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 const FX_MATRIX_CACHE = {};
 const STATE_STORAGE_MAP = {
@@ -29,6 +29,7 @@ let APP_STATE_CACHE = Object.fromEntries(Object.keys(APP_STATE_DEFAULTS).map(key
 const APP_STATE_SYNC_TIMERS = {};
 let FX_MATRIX_PENDING = null;
 let DETAIL_CACHE = null;
+const BASE_DATA = buildCanonicalBaseData(RAW_BASE_DATA);
 let DATA = hydrateData(BASE_DATA);
 let lastExpenseEdit = null;
 let lastCostEdit = null;
@@ -397,6 +398,29 @@ function normalizeControlLabels(data) {
   });
 }
 
+function buildCanonicalBaseData(base) {
+  const data = cloneData(base);
+  data.costRows = normalizeCostRowKeys(data.costRows);
+  data.masterRows = normalizeMasterRows(data.masterRows);
+  normalizeExpenseRowLabels(data.years);
+  Object.values(data.years || {}).forEach(yearData => {
+    if (!Array.isArray(yearData.expenseRows)) yearData.expenseRows = cloneData(data.expenseRows || []);
+  });
+  canonicalizeCategoryNames(data);
+  dedupeFasonCategories(data.years);
+  normalizeControlLabels(data);
+  return data;
+}
+
+function getHydrationStateSnapshot(overrides = {}) {
+  return {
+    imports: normalizeImportsState(overrides.imports ?? loadImports()),
+    expenseEdits: normalizeAppStateValue("expenseEdits", overrides.expenseEdits ?? loadExpenseEdits()),
+    manualEdits: normalizeAppStateValue("manualEdits", overrides.manualEdits ?? loadManualEdits()),
+    costEdits: normalizeAppStateValue("costEdits", overrides.costEdits ?? loadCostEdits())
+  };
+}
+
 function dedupeFasonCategories(yearsObj) {
   Object.values(yearsObj || {}).forEach(yearData => {
     const cats = yearData.categories;
@@ -418,21 +442,12 @@ function dedupeFasonCategories(yearsObj) {
   });
 }
 
-function hydrateData(base) {
+function hydrateData(base = BASE_DATA, appState = getHydrationStateSnapshot()) {
   const data = cloneData(base);
-  data.costRows = normalizeCostRowKeys(data.costRows);
-  data.masterRows = normalizeMasterRows(data.masterRows);
-  normalizeExpenseRowLabels(data.years);
-  Object.values(data.years || {}).forEach(yearData => {
-    if (!Array.isArray(yearData.expenseRows)) yearData.expenseRows = cloneData(data.expenseRows || []);
-  });
+  applyImportsToData(data, appState.imports);
   canonicalizeCategoryNames(data);
-  dedupeFasonCategories(data.years);
-  normalizeControlLabels(data);
-  applyImportsToData(data, loadImports());
-  canonicalizeCategoryNames(data);
-  applyExpenseEditsToData(data, loadExpenseEdits());
-  applyManualEditsToData(data, loadManualEdits());
+  applyExpenseEditsToData(data, appState.expenseEdits);
+  applyManualEditsToData(data, appState.manualEdits);
   try {
     applyDerivedCostMatrix(data);
   } catch (error) {
@@ -444,11 +459,17 @@ function hydrateData(base) {
     costRows: cloneData(data.costRows),
     masterRows: cloneData(data.masterRows)
   };
-  applyCostEditsToData(data, loadCostEdits());
+  applyCostEditsToData(data, appState.costEdits);
   applyCostDependenciesToData(data, costDependencyBaseline);
   applyLinkedCustomerTotals(data);
   refreshLinkedControls(data);
   return data;
+}
+
+function recomputeData(overrides = {}) {
+  DATA = hydrateData(BASE_DATA, getHydrationStateSnapshot(overrides));
+  DETAIL_CACHE = null;
+  return DATA;
 }
 
 function canonicalCategoryName(value) {
@@ -1189,7 +1210,7 @@ async function revertAuditEntry(id) {
     return;
   }
   logAudit({ action_type: "revert", entity: entry.entity, year: yearKey, month: entry.month, old_value: entry.new_value, new_value: entry.old_value, note: `Geri alindi: kayit #${entry.id}` });
-  DATA = hydrateData(BASE_DATA);
+  recomputeData();
   render();
   renderAuditLogPanel();
 }
@@ -1247,8 +1268,7 @@ function saveManualIncomeCell(cell) {
   } else {
     persistManualIncomeEdit(state.year, kind, itemName, month, nextValue);
   }
-  DETAIL_CACHE = null;
-  DATA = hydrateData(BASE_DATA);
+  recomputeData();
   render();
   return true;
 }
@@ -3815,8 +3835,7 @@ function setCostCellValue(wkod, monthIndex, nextValue, renderAfter = true) {
   persistCostRowEdit(state.year, code, target);
   lastCostEdit = { year: state.year, wkod: code, monthIndex, oldValue, nextValue: safe(nextValue) };
   if (renderAfter) {
-    DETAIL_CACHE = null;
-    DATA = hydrateData(BASE_DATA);
+    recomputeData();
     render();
   }
   return true;
@@ -4260,8 +4279,7 @@ function setExpenseCellValue(rowIndex, monthIndex, nextValue, note = null) {
     oldValue,
     nextValue: safe(nextValue)
   };
-  DETAIL_CACHE = null;
-  DATA = hydrateData(BASE_DATA);
+  recomputeData();
   render();
   return true;
 }
@@ -4963,12 +4981,7 @@ function dedupeFileRecords(records = []) {
 }
 
 function refreshDataFromImports(imports) {
-  DATA = cloneData(BASE_DATA);
-  applyImportsToData(DATA, imports);
-  applyExpenseEditsToData(DATA, loadExpenseEdits());
-  applyManualEditsToData(DATA, loadManualEdits());
-  applyCostEditsToData(DATA, loadCostEdits());
-  DETAIL_CACHE = null;
+  recomputeData({ imports });
   populateMonthSelect();
 }
 
@@ -5238,8 +5251,7 @@ function applyEditWorkbookRows(wb) {
       costCount += 1;
     });
   }
-  DATA = hydrateData(BASE_DATA);
-  DETAIL_CACHE = null;
+  recomputeData();
   return { expenseCount, costCount };
 }
 
@@ -5263,8 +5275,7 @@ async function importEditWorkbookFile(file) {
 
 function clearImports() {
   saveImports(defaultAppStateValue("imports"));
-  DATA = hydrateData(BASE_DATA);
-  DETAIL_CACHE = null;
+  recomputeData();
   state.importLog.unshift("Yerel içe aktarım verisi temizlendi.");
   populateMonthSelect();
   render();
@@ -5408,7 +5419,7 @@ function bind() {
     populateMonthSelect();
     render();
     ensureFxMatrixForYear(state.year).then(() => {
-      DATA = hydrateData(BASE_DATA);
+      recomputeData();
       render();
     });
   });
@@ -5565,13 +5576,13 @@ try {
   render();
   bootstrapServerState().then(changed => {
     if (!changed) return;
-    DATA = hydrateData(BASE_DATA);
+    recomputeData();
     state.year = latestAvailableYear();
     populateMonthSelect();
     render();
   });
   ensureFxMatrixForYear(state.year).then(() => {
-    DATA = hydrateData(BASE_DATA);
+    recomputeData();
     populateMonthSelect();
     render();
   });
