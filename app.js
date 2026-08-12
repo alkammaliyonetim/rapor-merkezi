@@ -535,7 +535,7 @@ function prefetchDetailDataSoon() {
 
 async function ensureDetailDataForInteraction() {
   try {
-    if (!(await ensureDetailDataForInteraction())) return;
+    await ensureDetailDataLoaded();
     return true;
   } catch (error) {
     window.alert(`Detay veri katmani yuklenemedi: ${error.message}`);
