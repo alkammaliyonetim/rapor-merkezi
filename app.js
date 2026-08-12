@@ -3648,6 +3648,46 @@ function derivedMonthlyCost(row, year, monthIndex) {
   return basePrice * rate;
 }
 
+function matchedKaplamaSourceRow(targetRow, data) {
+  const product = String(targetRow?.["ÜRÜN"] ?? "").trim();
+  const dimension = String(targetRow?.KALINLIK_BOY ?? "").trim();
+  if (!product || !dimension) return null;
+  return (data?.costRows || []).find(row =>
+    canonicalCategoryName(String(row?.["KATEGORİ"] ?? row?.["KATEGORÄ°"] ?? "")) === "KAPLAMA"
+    && String(row?.["ÜRÜN"] ?? "").trim() === product
+    && String(row?.KALINLIK_BOY ?? "").trim() === dimension
+  ) || null;
+}
+
+function kap1Kap2RatioSeries(targetRow, sourceRow) {
+  const targetMonths = targetRow?.months25;
+  const sourceMonths = sourceRow?.months25;
+  if (!Array.isArray(targetMonths) || !Array.isArray(sourceMonths)) return null;
+  const ratios = Array.from({ length: 12 }, (_, idx) => {
+    const targetValue = safe(targetMonths[idx]);
+    const sourceValue = safe(sourceMonths[idx]);
+    if (!targetValue || !sourceValue) return null;
+    return targetValue / sourceValue;
+  });
+  const fallback = [...ratios].reverse().find(value => value) || ratios.find(value => value) || null;
+  if (fallback === null) return null;
+  return ratios.map(value => value || fallback);
+}
+
+function derivedKap1Kap2Cost(row, year, monthIndex, data) {
+  const category = canonicalCategoryName(String(row?.["KATEGORİ"] ?? row?.["KATEGORÄ°"] ?? ""));
+  if (category !== "KAP1KAP2") return null;
+  const sourceRow = matchedKaplamaSourceRow(row, data);
+  if (!sourceRow) return null;
+  const sourceMonths = costMonthsForYear(sourceRow, year);
+  const sourceValue = safe(sourceMonths?.[monthIndex]);
+  if (!sourceValue) return null;
+  const ratios = kap1Kap2RatioSeries(row, sourceRow);
+  const ratio = ratios?.[monthIndex] || null;
+  if (!ratio) return null;
+  return sourceValue * ratio;
+}
+
 function applyDerivedCostMatrix(data) {
   (data?.costRows || []).forEach(row => {
     ["2025", "2026"].forEach(year => {
@@ -3656,6 +3696,18 @@ function applyDerivedCostMatrix(data) {
       for (let idx = 0; idx < 12; idx += 1) {
         if (months[idx] !== null && months[idx] !== undefined && months[idx] !== "") continue;
         const derived = derivedMonthlyCost(row, year, idx);
+        if (derived === null) continue;
+        months[idx] = derived;
+      }
+    });
+  });
+  (data?.costRows || []).forEach(row => {
+    ["2025", "2026"].forEach(year => {
+      const months = costMonthsForYear(row, year);
+      if (!Array.isArray(months)) return;
+      for (let idx = 0; idx < 12; idx += 1) {
+        if (months[idx] !== null && months[idx] !== undefined && months[idx] !== "") continue;
+        const derived = derivedKap1Kap2Cost(row, year, idx, data);
         if (derived === null) continue;
         months[idx] = derived;
       }
