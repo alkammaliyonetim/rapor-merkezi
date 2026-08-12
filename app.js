@@ -1536,6 +1536,101 @@ function compareCard(title, current, previous) {
   return { title, current, previous, diff, delta, good };
 }
 
+function comparisonWindowMonths(year = state.year) {
+  if (state.month !== "all") return [Number(state.month)].filter(Boolean);
+  const yearData = DATA.years[String(year)] || { yonPlus: [] };
+  const loadedMonths = uniqueMonths((yearData.yonPlus || []).map(row => row.month));
+  return loadedMonths.length && loadedMonths.length < 12 ? loadedMonths : monthRange(12);
+}
+
+function comparisonWindowLabel(months, year = state.year) {
+  if (!months.length) return `${year} veri yok`;
+  if (state.month !== "all") return `${monthLabels[months[0]]} ${year}`;
+  return months.length === 12 ? `${year} tüm yıl` : `${monthSpanText(months)} aynı dönem`;
+}
+
+function historicalComparisonRows() {
+  const selectedYear = Number(state.year);
+  const months = comparisonWindowMonths(selectedYear);
+  return Object.keys(DATA.years || {})
+    .map(Number)
+    .filter(year => year <= selectedYear)
+    .sort((left, right) => right - left)
+    .map(year => {
+      const yearKey = String(year);
+      const yearData = DATA.years[yearKey] || { yonPlus: [], overview: {} };
+      const summary = yearConfidenceSummary(yearKey);
+      const scopedMonths = months.filter(month => uniqueMonths((yearData.yonPlus || []).map(row => row.month)).includes(month));
+      const revenue = scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.ciro), 0);
+      const cost = scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.maliyet), 0);
+      const gross = scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.kar), 0);
+      const expense = scopedMonths.reduce((sum, month) => sum + expenseMonthTotal(yearData, month), 0);
+      const net = gross - expense;
+      const missingOverviewMonths = months.filter(month => !scopedMonths.includes(month));
+      const missingDetailMonths = months.filter(month => !summary.detailMonthsLoaded.includes(month));
+      const tone = missingDetailMonths.length || missingOverviewMonths.length ? "warn" : "ready";
+      return {
+        year: yearKey,
+        revenue,
+        cost,
+        gross,
+        expense,
+        net,
+        tone,
+        scopedLabel: scopedMonths.length ? monthSpanText(scopedMonths) : "yok",
+        detailLabel: summary.detailMonthsLoaded.length ? monthSpanText(summary.detailMonthsLoaded) : "yok",
+        missingOverviewMonths,
+        missingDetailMonths,
+        isSelected: year === selectedYear
+      };
+    });
+}
+
+function renderHistoricalComparisonPanel() {
+  const months = comparisonWindowMonths(state.year);
+  const label = comparisonWindowLabel(months, state.year);
+  const rows = historicalComparisonRows();
+  if (!rows.length) return "";
+  return `
+    <div class="history-compare">
+      <div class="history-compare-head">
+        <div class="history-compare-copy">
+          <span class="history-compare-kicker">Geçmiş Yıllar Mukayesesi</span>
+          <strong>${esc(label)}</strong>
+          <p>Seçili görünümde tüm yıllar aynı dönem penceresinden hesaplanır; detay eksiği olan yıllar ayrıca işaretlenir.</p>
+        </div>
+      </div>
+      <div class="history-compare-grid">
+        ${rows.map(row => `
+          <div class="history-compare-card ${row.tone} ${row.isSelected ? "active" : ""}">
+            <div class="history-compare-year">
+              <strong>${esc(row.year)}</strong>
+              <span>${row.isSelected ? "Seçili yıl" : "Geçmiş yıl"}</span>
+            </div>
+            <div class="history-compare-badges">
+              <span class="history-badge ${row.missingOverviewMonths.length ? "warn" : "ready"}">Özet ${esc(row.scopedLabel)}</span>
+              <span class="history-badge ${row.missingDetailMonths.length ? "warn" : "ready"}">Detay ${esc(row.detailLabel)}</span>
+            </div>
+            <div class="history-compare-metrics">
+              <div class="history-metric"><span>Satış</span><strong>${money(row.revenue)}</strong></div>
+              <div class="history-metric"><span>Maliyet</span><strong>${money(row.cost)}</strong></div>
+              <div class="history-metric"><span>Brüt Kar</span><strong>${money(row.gross)}</strong></div>
+              <div class="history-metric"><span>Net Kar</span><strong>${money(row.net)}</strong></div>
+            </div>
+            ${(row.missingOverviewMonths.length || row.missingDetailMonths.length) ? `
+              <div class="history-compare-note">
+                ${row.missingOverviewMonths.length ? `Özet eksiği ${esc(monthSpanText(row.missingOverviewMonths))}` : ""}
+                ${row.missingOverviewMonths.length && row.missingDetailMonths.length ? " • " : ""}
+                ${row.missingDetailMonths.length ? `Detay eksiği ${esc(monthSpanText(row.missingDetailMonths))}` : ""}
+              </div>
+            ` : `<div class="history-compare-note ok">Aynı dönem için özet ve detay görünür.</div>`}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function sortIndicator(active, dir) {
   if (!active) return "↕";
   return dir === "asc" ? "▲" : "▼";
@@ -2512,6 +2607,7 @@ function renderOverviewSummaryBar() {
         </div>
       ` : ""}
     </div>
+    ${renderHistoricalComparisonPanel()}
   `;
 }
 
