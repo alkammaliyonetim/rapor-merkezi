@@ -2419,11 +2419,12 @@ function renderCellDetails() {
 function incomeCell(value, kind, month, itemName = "", className = "") {
   const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
   const tooltip = buildIncomeHoverTooltip(kind, month, itemName, value, "money");
+  const historyHtml = buildIncomeHistoryHtml(kind, month, itemName, "money");
   const editable = ["sales", "expense"].includes(kind) && Boolean(itemName);
   const lockClass = editable ? "manual-editable" : "manual-locked";
   const editAttrs = editable ? ` data-editable="1" title="Ctrl + tık veya sağ tık ile şifreli değiştir"` : ` data-editable="0" title="Hesaplanan / kilitli hücre"`;
   const attrs = isFilled ? ` class="income-value ${lockClass} ${className}" data-kind="${kind}" data-month="${month}" data-item="${esc(itemName)}" data-tooltip="${esc(tooltip)}"${editAttrs}` : ` class="${lockClass} ${className}" data-tooltip="${esc(tooltip)}"${editAttrs}`;
-  return `<td${attrs}>${isFilled ? money(value) : "0"}</td>`;
+  return `<td${attrs}><div class="income-cell-stack"><span class="income-main">${isFilled ? money(value) : "0"}</span>${historyHtml}</div></td>`;
 }
 
 function incomeQtyCell(value, month, itemName, unit) {
@@ -2435,7 +2436,7 @@ function incomeQtyCell(value, month, itemName, unit) {
 function incomeMetricValue(yearData, kind, month, itemName = "") {
   if (!yearData) return 0;
   const monthRow = (yearData.yonPlus || []).find(entry => entry.month === month) || { categories: [], total: {} };
-  const category = itemName ? (monthRow.categories || []).find(entry => entry.name === itemName) || {} : monthRow.total || {};
+  const category = itemName ? (monthRow.categories || []).find(entry => sameLabel(entry.name, itemName)) || {} : monthRow.total || {};
   if (kind === "sales") return safe(itemName ? category.ciro : monthRow.total?.ciro);
   if (kind === "qty") return safe(itemName ? category.adet : monthRow.total?.adet);
   if (kind === "cost") return safe(itemName ? category.maliyet : monthRow.total?.maliyet);
@@ -2466,6 +2467,48 @@ function formatIncomeHoverValue(value, format = "money", unit = "") {
   return money(value);
 }
 
+function metricMonthCovered(yearData, kind, month, itemName = "") {
+  if (!yearData) return false;
+  if (kind === "expense") {
+    if (itemName) return Boolean((yearData.expenseRows || DATA.expenseRows || []).find(row => sameLabel(row[0], itemName)));
+    return expenseCoverageMonths(yearData.expenseRows || DATA.expenseRows || []).includes(month);
+  }
+  return uniqueMonths((yearData.yonPlus || []).map(row => row.month)).includes(month);
+}
+
+function historicalIncomeRows(kind, month, itemName = "", format = "money", unit = "") {
+  const currentYear = Number(state.year);
+  return Object.keys(DATA.years || {})
+    .map(Number)
+    .filter(year => year < currentYear)
+    .sort((left, right) => right - left)
+    .map(year => {
+      const yearData = DATA.years?.[String(year)];
+      const covered = metricMonthCovered(yearData, kind, month, itemName);
+      const value = covered ? incomeMetricValue(yearData, kind, month, itemName) : null;
+      return {
+        year: String(year),
+        covered,
+        text: covered ? formatIncomeHoverValue(value, format, unit) : "veri yok"
+      };
+    });
+}
+
+function buildIncomeHistoryHtml(kind, month, itemName = "", format = "money", unit = "") {
+  const historyRows = historicalIncomeRows(kind, month, itemName, format, unit);
+  if (!historyRows.length) return "";
+  return `
+    <div class="income-history">
+      ${historyRows.map(row => `
+        <span class="income-history-line ${row.covered ? "" : "muted"}">
+          <span class="income-history-year">${esc(row.year)}</span>
+          <span class="income-history-value">${esc(row.text)}</span>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
 function buildIncomeHoverTooltip(kind, month, itemName, monthValue, format = "money", unit = "") {
   const yearData = currentYearData();
   const previousYear = String(Number(state.year) - 1);
@@ -2490,6 +2533,42 @@ function buildIncomeHoverTooltip(kind, month, itemName, monthValue, format = "mo
     `Bu yıl toplam: ${formatIncomeHoverValue(currentTotal, format, unit)}`,
     `Bu yıl ortalama: ${formatIncomeHoverValue(currentAverage, format, unit)}`,
     `Geçen yıl ortalama: ${previousYearData ? formatIncomeHoverValue(previousAverage, format, unit) : "veri yok"}`
+  ].join("\n");
+}
+
+function incomeQtyCell(value, month, itemName, unit) {
+  const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
+  const tooltip = buildIncomeHoverTooltip("qty", month, itemName, value, "qty", unit);
+  const historyHtml = buildIncomeHistoryHtml("qty", month, itemName, "qty", unit);
+  return `<td class="${isFilled ? "income-value " : ""}manual-editable" data-tooltip="${esc(tooltip)}" data-editable="1" title="Ctrl + tık veya sağ tık ile şifreli değiştir" data-kind="qty" data-month="${month}" data-item="${esc(itemName)}"><div class="income-cell-stack"><span class="income-main">${isFilled ? num(value, unit === "M2" || unit === "M" ? 3 : 0) : "0"}</span>${historyHtml}</div></td>`;
+}
+
+function buildIncomeHoverTooltip(kind, month, itemName, monthValue, format = "money", unit = "") {
+  const yearData = currentYearData();
+  const previousYear = String(Number(state.year) - 1);
+  const previousYearData = DATA.years?.[previousYear];
+  const currentSeries = incomeMetricSeries(yearData, kind, itemName);
+  const previousSeries = incomeMetricSeries(previousYearData, kind, itemName);
+  const currentTotal = currentSeries.reduce((sum, value) => sum + safe(value), 0);
+  const currentAverage = averageFilled(currentSeries);
+  const previousAverage = averageFilled(previousSeries);
+  const historyRows = historicalIncomeRows(kind, month, itemName, format, unit);
+  const subject = itemName || ({
+    sales: "Toplam satış",
+    qty: "Toplam miktar",
+    cost: "Toplam maliyet",
+    gross: "Brüt kar",
+    expense: "Toplam gider",
+    net: "Net kar"
+  }[kind] || "Hücre");
+
+  return [
+    `${subject} - ${monthLabels[month]} ${state.year}`,
+    `Bu ay: ${formatIncomeHoverValue(monthValue, format, unit)}`,
+    `Bu yıl toplam: ${formatIncomeHoverValue(currentTotal, format, unit)}`,
+    `Bu yıl ortalama: ${formatIncomeHoverValue(currentAverage, format, unit)}`,
+    `Geçen yıl ortalama: ${previousYearData ? formatIncomeHoverValue(previousAverage, format, unit) : "veri yok"}`,
+    ...historyRows.map(row => `${row.year} aynı ay: ${row.text}`)
   ].join("\n");
 }
 
