@@ -7,7 +7,7 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "095820261208";
+const APP_VERSION_STAMP = "100420261208";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
 let DETAIL_CACHE = null;
@@ -937,6 +937,37 @@ function linkedRecipeCode(recipe, keys, availableMap) {
     if (code && code !== "0" && code !== "1000" && availableMap.has(code)) return code;
   }
   return "";
+}
+
+function costDependencyCoverage(year = state.year) {
+  const monthKey = String(year) === "2025" ? "months25" : "months26";
+  const availableCodes = new Set((DATA.costRows || []).map(row => String(row.WKOD ?? "")));
+  let activeProducts = 0;
+  let linkedActiveProducts = 0;
+  (DATA.masterRows || []).forEach(row => {
+    const active = (row[monthKey] || []).some(metric => safe(metric?.A) > 0);
+    if (!active) return;
+    activeProducts += 1;
+    const linked = ["MKOD", "SKOD", "KAP1KOD", "KAP2KOD", "TUKOD"]
+      .map(key => String(row.recipe?.[key] ?? ""))
+      .some(code => code && code !== "0" && code !== "1000" && availableCodes.has(code));
+    if (linked) linkedActiveProducts += 1;
+  });
+  return {
+    activeProducts,
+    linkedActiveProducts,
+    rate: activeProducts ? linkedActiveProducts / activeProducts : 0
+  };
+}
+
+function activeProductsUsingCost(wkod, year = state.year) {
+  const code = String(wkod ?? "");
+  const monthKey = String(year) === "2025" ? "months25" : "months26";
+  return (DATA.masterRows || []).filter(row => {
+    const active = (row[monthKey] || []).some(metric => safe(metric?.A) > 0);
+    if (!active) return false;
+    return ["MKOD", "SKOD", "KAP1KOD", "KAP2KOD", "TUKOD"].some(key => String(row.recipe?.[key] ?? "") === code);
+  }).length;
 }
 
 function applyCostDependenciesToData(data, baseline) {
@@ -3319,6 +3350,11 @@ function isCostCellEdited(wkod, monthIndex, value, yearEdits = null) {
 
 function setCostCellValue(wkod, monthIndex, nextValue, renderAfter = true) {
   const code = String(wkod || "");
+  const linkedProductCount = activeProductsUsingCost(code, state.year);
+  if (!linkedProductCount) {
+    window.alert(`${state.year} için ${code} maliyetini kullanarak satış/üretim yapan aktif MASTER_ERP ürünü yok. Bağlantısız maliyet değişikliğine izin verilmedi.`);
+    return false;
+  }
   const sourceRow = DATA.costRows.find(row => String(row.WKOD ?? "") === code);
   if (!sourceRow) return false;
   const target = state.year === "2025" ? sourceRow.months25 : sourceRow.months26;
@@ -3571,8 +3607,10 @@ function buildCostInsights(costRows, productRows) {
   const variableTotal = productRows.reduce((sum, row) => sum + row.variableShare, 0);
   const topFixed = [...productRows].sort((a, b) => b.fixedShare - a.fixedShare)[0];
   const topVariable = [...productRows].sort((a, b) => b.variableShare - a.variableShare)[0];
+  const dependencyCoverage = costDependencyCoverage(state.year);
   return [
     ["Hammadde kartları", num(costRows.length), `${categories} kategori • ${activeMonths}/12 ay dolu`],
+    ["Reçete bağlantısı", dependencyCoverage.activeProducts ? pct(dependencyCoverage.rate) : "Bağlantı yok", dependencyCoverage.activeProducts ? `${num(dependencyCoverage.linkedActiveProducts)}/${num(dependencyCoverage.activeProducts)} aktif ürün bağlı` : `${state.year} MASTER_ERP aylık üretim/adet verisi yok`],
     ["Yıllık ham maliyet", money(annualRawTotal), topRaw ? `En yüksek: ${esc(topRaw.formattedProduct || topRaw.product)}` : ""],
     ["En yüksek artış", topRawTrend ? esc(topRawTrend.formattedProduct || topRawTrend.product) : "—", topRawTrend ? pct(topRawTrend.deltaPct) : ""],
     ["Döviz kontrolü", currencyText || "Dövizli kayıt yok", "PB ve kullanılan/implied kur"],
@@ -3781,7 +3819,7 @@ function renderCosts() {
   const costMonthIndex = currentCostMonthIndex();
   const costRows = filteredCostRows();
   const productRows = buildProductCostRows();
-  renderAnalysisCards("#costInsightGrid", buildCostInsights(costRows, productRows).slice(0, 6));
+  renderAnalysisCards("#costInsightGrid", buildCostInsights(costRows, productRows).slice(0, 7));
   const costHead = q("#costHead");
   if (costHead) {
     costHead.innerHTML = `<tr>
