@@ -1489,6 +1489,53 @@ function missingItemControlKey(item) {
   return "";
 }
 
+function professionalOverviewHeadline(summary) {
+  if (summary.status === "risk") {
+    if (summary.blankCustomerCount || summary.blankInvoiceCount) return "Detay veri kalitesinde iyileştirme gerekiyor.";
+    if (Math.abs(summary.revenueDiff) >= 1 || Math.abs(summary.expenseDiff) >= 1) return "Özet ve detay toplamları arasında doğrulama farkı bulunuyor.";
+    if (summary.expenseClosedMissingMonths.length) return "Kapanmış dönemlerde gider kapsamı eksik görünüyor.";
+    if (summary.detailClosedMissingMonths.length) return "Satış detay kapsamı bazı kapanmış dönemlerde eksik.";
+    if (summary.closedMissingMonths.length) return "Kapanmış dönemlerin veri kapsamı tamamlanmamış.";
+    return "Veri seti tam doğrulama gerektiriyor.";
+  }
+  if (summary.status === "warn") {
+    if (summary.controlCount && summary.controlPassCount < summary.controlCount) return "Bazı toplamlar için ek doğrulama önerilir.";
+    if (summary.activeMonth) return `${monthLabels[summary.activeMonth]} ${summary.yearKey} dönemi henüz kapanmadı.`;
+  }
+  return `${summary.yearKey} verisi raporlama için hazır görünüyor.`;
+}
+
+function professionalOverviewMeta(summary, salesSpan, detailSpan) {
+  return [
+    summary.activeMonth ? `Aktif dönem: ${monthLabels[summary.activeMonth]} ${summary.yearKey}` : "",
+    summary.loadedMonths.length ? `Satış kapsamı: ${salesSpan}` : "",
+    summary.lastSalesDate ? `Son kayıt: ${formatDateLabel(summary.lastSalesDate)}` : "",
+    summary.detailMonthsLoaded.length ? `Detay kapsamı: ${detailSpan}` : ""
+  ].filter(Boolean);
+}
+
+function professionalMissingItemLabel(item) {
+  const text = fixMojibakeText(String(item || ""));
+  return text
+    .replace("Satış eksiği", "Satış kapsamı eksik")
+    .replace("Gider eksiği", "Gider kapsamı eksik")
+    .replace("Detay satir eksigi", "Detay kapsamı eksik")
+    .replace("Bordro detayı yok", "Bordro detayı bulunmuyor")
+    .replace("Boş müşteri", "Müşteri bilgisi eksik")
+    .replace("Boş fatura", "Fatura bilgisi eksik")
+    .replace("Aktif ay", "Aktif dönem")
+    .replace("Beklenen aylar", "Henüz kapanmayan dönem")
+    .replace("Detay ciro farkı", "Detay ciro farkı")
+    .replace("Gider farkı", "Gider farkı")
+    .replace("Kontrol farkı", "Kontrol farkı");
+}
+
+function professionalStatusLabel(summary) {
+  if (summary.status === "ready") return "Hazır";
+  if (summary.status === "warn") return "İzle";
+  return "Eksik";
+}
+
 function computeComparisons() {
   const yearData = currentYearData();
   const selected = selectedMonthData();
@@ -2665,7 +2712,7 @@ function renderOverviewSummaryBar() {
     , summary.detailMonthsLoaded.length ? `Detay ${detailSpan}` : "",
   ].filter(Boolean);
   const pills = [
-    { tone: summary.status, label: summary.statusLabel },
+    { tone: summary.status, label: professionalStatusLabel(summary) },
     { tone: summary.closedMissingMonths.length ? "warn" : "ready", label: `Ay ${closedValue}` },
     { tone: "ready", label: `Satır ${num(summary.salesRowCount)}` },
     { tone: summary.invoiceCount ? "ready" : "warn", label: `Fatura ${num(summary.invoiceCount)}` },
@@ -2673,6 +2720,9 @@ function renderOverviewSummaryBar() {
     { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` },
     { tone: summary.detailClosedMissingMonths.length ? "warn" : "ready", label: `Detay ${detailSpan}` }
   ];
+  const displayHeadline = professionalOverviewHeadline(summary);
+  const displayMetaItems = professionalOverviewMeta(summary, salesSpan, detailSpan);
+  const displayFollowUps = followUps.map(professionalMissingItemLabel);
   const followTone = summary.status === "risk" ? "risk" : "warn";
   const followPill = item => {
     const key = missingItemControlKey(item);
@@ -2689,11 +2739,11 @@ function renderOverviewSummaryBar() {
           <div class="overview-title-stack">
             <div class="overview-bar-title">
               <strong>${state.year}</strong>
-              <span>${esc(headline)}</span>
+              <span>${esc(displayHeadline)}</span>
             </div>
-            ${metaItems.length ? `
+            ${displayMetaItems.length ? `
               <div class="overview-bar-meta overview-bar-meta-tight">
-                ${metaItems.map(item => `<span>${esc(item)}</span>`).join("")}
+                ${displayMetaItems.map(item => `<span>${esc(item)}</span>`).join("")}
               </div>
             ` : ""}
           </div>
@@ -2702,9 +2752,9 @@ function renderOverviewSummaryBar() {
           <div class="overview-bar-pills">
             ${pills.map(item => `<span class="overview-pill ${item.tone}">${esc(item.label)}</span>`).join("")}
           </div>
-          ${followUps.length ? `
+          ${displayFollowUps.length ? `
             <div class="overview-bar-alerts">
-              ${followUps.map(followPill).join("")}
+              ${displayFollowUps.map(followPill).join("")}
             </div>
           ` : ""}
         </div>
