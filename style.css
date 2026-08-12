@@ -51,13 +51,13 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-totals{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .income-totals span{background:#eef6ff;border:1px solid #bfd7ff;border-radius:6px;color:#0f172a;font-weight:800;font-size:11px;padding:6px 8px}
 .income-table-wrap{overflow:auto;max-height:calc(100vh - 148px);background:#fff}
-.income-table{--income-label-col-width:128px;--income-trend-col-width:42px;min-width:1180px;width:100%;border-collapse:separate;border-spacing:0;font-family:Arial,Helvetica,sans-serif}
+.income-table{--income-label-col-width:172px;--income-trend-col-width:46px;min-width:1180px;width:100%;border-collapse:separate;border-spacing:0;font-family:Arial,Helvetica,sans-serif}
 .income-table th,.income-table td{border-right:1px solid #111827;border-bottom:1px solid #111827;padding:4px 6px;font-size:12px;line-height:1.15;white-space:nowrap;text-align:right;color:#111827;vertical-align:top;box-sizing:border-box}
 .income-table thead th{position:sticky;top:0;z-index:4;background:#e5e7eb;font-weight:900;text-align:center;border-top:1px solid #111827}
 .income-table .year-head{background:#f3f300;color:#e11d48;font-weight:950}
 .income-table .month-head-col.odd{background:#f8fafc}
 .income-table .month-head-col.even{background:#d9d9d9}
-.income-table tbody th{position:sticky;left:0;z-index:3;text-align:left;font-weight:900;background:#f8fafc;min-width:var(--income-label-col-width);max-width:var(--income-label-col-width);white-space:normal;overflow-wrap:anywhere}
+.income-table tbody th{position:sticky;left:0;z-index:3;text-align:left;font-weight:900;background:#f8fafc;min-width:var(--income-label-col-width);max-width:var(--income-label-col-width);white-space:normal;overflow-wrap:anywhere;padding-top:8px;padding-bottom:8px}
 .income-table tbody td:nth-child(2){position:sticky;left:var(--income-label-col-width);z-index:2;text-align:center;font-weight:800;background:#b7dbc7;min-width:var(--income-trend-col-width);width:var(--income-trend-col-width);padding-left:4px;padding-right:4px;white-space:normal}
 .income-table tbody td:nth-child(2n+4){background:#d9d9d9}
 .income-table .section-row th,.income-table .section-row td{background:#2f3120!important;color:#fff;font-weight:950;text-align:left}
@@ -76,8 +76,8 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-table .expense-line th,.income-table .expense-line td{background:#d9edf7;color:#111827}
 .income-table .total-line th,.income-table .total-line td{background:#f2f2f2!important;color:#111827;font-weight:950;border-top:2px solid #111827}
 .income-table .gross-line th,.income-table .gross-line td,.income-table .net-line th,.income-table .net-line td{background:#252513!important;color:#fff;font-weight:950}
-.ranked-label{display:flex;align-items:center;gap:4px;min-width:0}
-.ranked-label .rank-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ranked-label{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:start;column-gap:4px;row-gap:4px;min-width:0;width:100%}
+.ranked-label .rank-name{min-width:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;word-break:break-word;line-height:1.16}
 .ranked-label .rank-no{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:16px;border-radius:5px;background:#111827;color:#fff;font-size:10px;font-weight:950;line-height:1}
 .ranked-label .rank-share{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:16px;border-radius:5px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:950;line-height:1}
 .expense-line .ranked-label .rank-no{background:#0f4c81}
