@@ -1311,10 +1311,12 @@ function yearConfidenceSummary(year = state.year) {
   const payrollRows = detailStore().payrollRows.filter(row => row.year === numericYear);
   const today = todayInfo();
   const loadedMonths = uniqueMonths((yearData.yonPlus || []).map(row => row.month));
+  const detailMonthsLoaded = uniqueMonths(salesRows.map(row => row.month));
   const closedMonths = numericYear < today.year ? monthRange(12) : (numericYear === today.year ? monthRange(Math.max(0, today.month - 1)) : []);
   const activeMonth = numericYear === today.year ? today.month : null;
   const futureMonths = numericYear === today.year ? Array.from({ length: Math.max(0, 12 - today.month) }, (_, idx) => today.month + idx + 1) : [];
   const closedMissingMonths = closedMonths.filter(month => !loadedMonths.includes(month));
+  const detailClosedMissingMonths = closedMonths.filter(month => loadedMonths.includes(month) && !detailMonthsLoaded.includes(month));
   const staticExpenseMonths = expenseCoverageMonths(yearData.expenseRows || DATA.expenseRows || []);
   const importedExpenseMonths = uniqueMonths(imports.expenseRows.filter(row => Number(row.year) === numericYear).map(row => row.month));
   const payrollMonths = uniqueMonths([
@@ -1346,6 +1348,9 @@ function yearConfidenceSummary(year = state.year) {
   if (loadedMonths.length) {
     completedItems.push(`Satış ayları ${monthSpanText(loadedMonths)}`);
   }
+  if (detailMonthsLoaded.length) {
+    completedItems.push(`Detay aylari ${monthSpanText(detailMonthsLoaded)}`);
+  }
   if (salesRows.length) {
     completedItems.push(`Satış detay ${num(salesRows.length)} satır${invoiceCount ? ` | ${num(invoiceCount)} fatura` : ""}`);
   }
@@ -1367,6 +1372,9 @@ function yearConfidenceSummary(year = state.year) {
 
   if (closedMissingMonths.length) {
     missingItems.push(`Satış eksiği ${monthSpanText(closedMissingMonths)}`);
+  }
+  if (detailClosedMissingMonths.length) {
+    missingItems.push(`Detay satir eksigi ${monthSpanText(detailClosedMissingMonths)}`);
   }
   if (expenseClosedMissingMonths.length) {
     missingItems.push(`Gider eksiği ${monthSpanText(expenseClosedMissingMonths)}`);
@@ -1399,7 +1407,7 @@ function yearConfidenceSummary(year = state.year) {
     missingItems.push("Eksik veri yok");
   }
 
-  if (closedMissingMonths.length || expenseMissing || blankCustomerCount || blankInvoiceCount || Math.abs(revenueDiff) >= 1 || Math.abs(expenseDiff) >= 1) {
+  if (closedMissingMonths.length || detailClosedMissingMonths.length || expenseMissing || blankCustomerCount || blankInvoiceCount || Math.abs(revenueDiff) >= 1 || Math.abs(expenseDiff) >= 1) {
     status = "risk";
     statusLabel = "Eksik";
     statusReason = blankCustomerCount || blankInvoiceCount
@@ -1411,7 +1419,11 @@ function yearConfidenceSummary(year = state.year) {
       : expenseMissing
       ? "Gider ve bordro bagli olmadigi icin net kar resmi tamam degil."
       : "Kapanmış ayların tamamı raporda görünmüyor.";
-  } else if ((checks.length && controlPassCount < checks.length) || activeMonth) {
+  }
+
+  if (status === "risk" && detailClosedMissingMonths.length && !blankCustomerCount && !blankInvoiceCount) {
+    statusReason = `Ozet aylari dolu ama detay satis satirlari ${monthSpanText(detailClosedMissingMonths)} icin eksik.`;
+  } else if (status !== "risk" && ((checks.length && controlPassCount < checks.length) || activeMonth)) {
     status = "warn";
     statusLabel = "Kontrol Et";
     statusReason = checks.length && controlPassCount < checks.length
@@ -1424,11 +1436,14 @@ function yearConfidenceSummary(year = state.year) {
     yearKey,
     todayLabel: today.label,
     loadedMonths,
+    detailMonthsLoaded,
     closedMonths,
     activeMonth,
     futureMonths,
     closedMissingMonths,
     closedCoveredCount: Math.max(0, closedMonths.length - closedMissingMonths.length),
+    detailClosedMissingMonths,
+    detailClosedCoveredCount: Math.max(0, loadedMonths.filter(month => closedMonths.includes(month)).length - detailClosedMissingMonths.length),
     expenseMonthsLoaded,
     expenseClosedMissingMonths,
     lastSalesDate,
@@ -1466,6 +1481,7 @@ function renderYearNotice() {
 function missingItemControlKey(item) {
   const text = normalizeText(item || "");
   if (text.includes("DETAY CIRO FARKI")) return "detailRevenue";
+  if (text.includes("DETAY SATIR EKSIGI")) return "detailRevenue";
   if (text.includes("GIDER FARKI")) return "expenseRows";
   if (text.includes("BOS MUSTERI")) return "blankCustomer";
   if (text.includes("BOS FATURA")) return "blankInvoice";
@@ -2444,6 +2460,7 @@ function renderOverviewSummaryBar() {
   const closedValue = closedTarget ? `${summary.closedCoveredCount}/${closedTarget}` : "0/0";
   const overview = q("#overviewConfidence");
   const salesSpan = summary.loadedMonths.length ? monthSpanText(summary.loadedMonths) : "veri yok";
+  const detailSpan = summary.detailMonthsLoaded.length ? monthSpanText(summary.detailMonthsLoaded) : "bekleniyor";
   const expenseSpan = summary.expenseMonthsLoaded.length ? monthSpanText(summary.expenseMonthsLoaded) : "bekleniyor";
   const followUps = summary.missingItems.filter(item => item && item !== "Eksik veri yok").slice(0, 3);
   const headline = summary.statusReason || (summary.expenseMissing ? "Sunum YTD okunmalı." : "Sunum kullanıma hazır.");
@@ -2451,6 +2468,7 @@ function renderOverviewSummaryBar() {
     summary.activeMonth ? `${monthLabels[summary.activeMonth]} aktif ay` : "",
     summary.loadedMonths.length ? `Satış ${salesSpan}` : "",
     summary.lastSalesDate ? `Son kayıt ${formatDateLabel(summary.lastSalesDate)}` : ""
+    , summary.detailMonthsLoaded.length ? `Detay ${detailSpan}` : "",
   ].filter(Boolean);
   const pills = [
     { tone: summary.status, label: summary.statusLabel },
@@ -2458,7 +2476,8 @@ function renderOverviewSummaryBar() {
     { tone: "ready", label: `Satır ${num(summary.salesRowCount)}` },
     { tone: summary.invoiceCount ? "ready" : "warn", label: `Fatura ${num(summary.invoiceCount)}` },
     { tone: summary.expenseMissing ? "warn" : "ready", label: summary.expenseMissing ? `Gider ${expenseSpan}` : `Gider ${money(summary.expenseTotal)}` },
-    { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` }
+    { tone: summary.controlCount && summary.controlPassCount === summary.controlCount ? "ready" : "warn", label: `Kontrol ${summary.controlPassCount}/${summary.controlCount || 0}` },
+    { tone: summary.detailClosedMissingMonths.length ? "warn" : "ready", label: `Detay ${detailSpan}` }
   ];
   const followTone = summary.status === "risk" ? "risk" : "warn";
   const followPill = item => {
@@ -4104,6 +4123,8 @@ function renderControl() {
       <div class="control-summary-meta">
         <span>Detay satir: ${num(summary.salesRowCount)}</span>
         <span>Fatura: ${num(summary.invoiceCount)}</span>
+        <span>Ozet ay: ${summary.loadedMonths.length ? monthSpanText(summary.loadedMonths) : "yok"}</span>
+        <span>Detay ay: ${summary.detailMonthsLoaded.length ? monthSpanText(summary.detailMonthsLoaded) : "yok"}</span>
         <span>Statik detay: ${num(audit.static.rowCount)}</span>
         <span>Ice aktarilan: ${num(audit.imported.rowCount)}</span>
         <span>Birlesik ciro: ${money(audit.combined.revenue)}</span>
