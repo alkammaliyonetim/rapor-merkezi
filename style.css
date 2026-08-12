@@ -95,10 +95,10 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-hover-tip .tip-row.current .tip-value{color:#fef08a;font-size:16px}
 .income-table .income-value{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 .income-table .income-value:hover{outline:2px solid #2563eb;outline-offset:-2px}
-.income-table .income-cell-stack{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-height:40px}
+.income-table .income-cell-stack{display:flex;flex-direction:column;align-items:flex-end;gap:3px;min-height:46px}
 .income-table .income-main{display:block;font-weight:800;line-height:1.05}
-.income-table .income-history{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
-.income-table .income-history-line{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:9px;line-height:1;color:rgba(15,23,42,.78)}
+.income-table .income-history{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.income-table .income-history-line{display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:10px;line-height:1.05;color:rgba(15,23,42,.82)}
 .income-table .income-history-line.muted{opacity:.56}
 .income-table .income-history-year{font-weight:800;color:rgba(30,41,59,.72)}
 .income-table .income-history-value{font-variant-numeric:tabular-nums}

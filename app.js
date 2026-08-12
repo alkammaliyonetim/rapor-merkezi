@@ -2687,7 +2687,6 @@ function renderOverviewSummaryBar() {
         </div>
       ` : ""}
     </div>
-    ${renderHistoricalComparisonPanel()}
   `;
 }
 
