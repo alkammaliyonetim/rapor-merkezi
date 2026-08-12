@@ -7,11 +7,11 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "085220262306";
+const APP_VERSION_STAMP = "095820261208";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
-let DATA = hydrateData(BASE_DATA);
 let DETAIL_CACHE = null;
+let DATA = hydrateData(BASE_DATA);
 let lastExpenseEdit = null;
 let lastCostEdit = null;
 function latestAvailableYear() {
@@ -406,6 +406,9 @@ function hydrateData(base) {
   data.costRows = normalizeCostRowKeys(data.costRows);
   data.masterRows = normalizeMasterRows(data.masterRows);
   normalizeExpenseRowLabels(data.years);
+  Object.values(data.years || {}).forEach(yearData => {
+    if (!Array.isArray(yearData.expenseRows)) yearData.expenseRows = cloneData(data.expenseRows || []);
+  });
   canonicalizeCategoryNames(data);
   dedupeFasonCategories(data.years);
   normalizeControlLabels(data);
@@ -413,7 +416,14 @@ function hydrateData(base) {
   canonicalizeCategoryNames(data);
   applyExpenseEditsToData(data, loadExpenseEdits());
   applyManualEditsToData(data, loadManualEdits());
+  const costDependencyBaseline = {
+    costRows: cloneData(data.costRows),
+    masterRows: cloneData(data.masterRows)
+  };
   applyCostEditsToData(data, loadCostEdits());
+  applyCostDependenciesToData(data, costDependencyBaseline);
+  applyLinkedCustomerTotals(data);
+  refreshLinkedControls(data);
   return data;
 }
 
@@ -787,6 +797,8 @@ function recalcExpenseOverview(yearData) {
   yearData.overview.profitBeforeTax = safe(yearData.overview.grossProfit) - totalExpense;
   yearData.overview.netProfit = safe(yearData.overview.profitBeforeTax) - safe(yearData.overview.corporateTax);
   yearData.overview.netMargin = safe(yearData.overview.totalRevenue) ? yearData.overview.netProfit / yearData.overview.totalRevenue : 0;
+  yearData.yonRapor = yearData.yonRapor || {};
+  yearData.yonRapor.summary = yearData.overview;
 }
 
 function recalcIncomeOverview(yearData) {
@@ -811,8 +823,11 @@ function recalcIncomeOverview(yearData) {
     acc.grossProfit += safe(month.total?.kar);
     return acc;
   }, { totalRevenue: 0, totalCost: 0, grossProfit: 0 });
-  yearData.categories = (yearData.categories || []).map(category => {
-    const rows = (yearData.yonPlus || []).map(month => (month.categories || []).find(item => item.name === category.name)).filter(Boolean);
+  const categoryNames = [...new Set((yearData.yonPlus || []).flatMap(month => (month.categories || []).map(category => canonicalCategoryName(category.name))))];
+  const existingCategories = new Map((yearData.categories || []).map(category => [canonicalCategoryName(category.name), category]));
+  yearData.categories = categoryNames.map(categoryName => {
+    const category = existingCategories.get(categoryName) || { name: categoryName };
+    const rows = (yearData.yonPlus || []).map(month => (month.categories || []).find(item => canonicalCategoryName(item.name) === categoryName)).filter(Boolean);
     const adet = rows.reduce((sum, row) => sum + safe(row.adet), 0);
     const ciro = rows.reduce((sum, row) => sum + safe(row.ciro), 0);
     const maliyet = rows.reduce((sum, row) => sum + safe(row.maliyet), 0);
@@ -827,6 +842,14 @@ function recalcIncomeOverview(yearData) {
   yearData.overview.profitBeforeTax = totals.grossProfit - safe(yearData.overview.totalExpense);
   yearData.overview.netProfit = safe(yearData.overview.profitBeforeTax) - safe(yearData.overview.corporateTax);
   yearData.overview.netMargin = totals.totalRevenue ? safe(yearData.overview.netProfit) / totals.totalRevenue : 0;
+  yearData.yonRapor = yearData.yonRapor || {};
+  yearData.yonRapor.summary = yearData.overview;
+  yearData.yonRapor.categories = yearData.categories.map(category => ({
+    name: category.name,
+    adet: category.adet,
+    ciro: category.ciro,
+    share: totals.totalRevenue ? safe(category.ciro) / totals.totalRevenue : 0
+  }));
 }
 
 function applyManualEditsToData(data, edits) {
@@ -895,6 +918,98 @@ function applyCostEditsToData(data, edits) {
       if (!Array.isArray(target)) return;
       for (let idx = 0; idx < 12; idx += 1) target[idx] = safe(editedMonths[idx]);
     });
+  });
+}
+
+function costRowMap(rows = [], year = "2025") {
+  const map = new Map();
+  rows.forEach(row => {
+    const code = String(row?.WKOD ?? "").trim();
+    if (!code) return;
+    map.set(code, year === "2025" ? row.months25 : row.months26);
+  });
+  return map;
+}
+
+function linkedRecipeCode(recipe, keys, availableMap) {
+  for (const key of keys) {
+    const code = String(recipe?.[key] ?? "").trim();
+    if (code && code !== "0" && code !== "1000" && availableMap.has(code)) return code;
+  }
+  return "";
+}
+
+function applyCostDependenciesToData(data, baseline) {
+  if (!data?.masterRows?.length || !baseline?.masterRows?.length) return;
+  const baselineMaster = new Map(baseline.masterRows.map(row => [String(row.code ?? ""), row]));
+  ["2025", "2026"].forEach(year => {
+    const sourceCosts = costRowMap(baseline.costRows, year);
+    const currentCosts = costRowMap(data.costRows, year);
+    const monthKey = year === "2025" ? "months25" : "months26";
+    const categoryDelta = new Map();
+
+    data.masterRows.forEach(row => {
+      const sourceRow = baselineMaster.get(String(row.code ?? ""));
+      if (!sourceRow) return;
+      const recipe = row.recipe || {};
+      const componentLinks = [
+        ["LG", ["MKOD", "SKOD"]],
+        ["KAP1", ["KAP1KOD"]],
+        ["KAP2", ["KAP2KOD"]],
+        ["TUT", ["TUKOD"]]
+      ];
+      for (let idx = 0; idx < 12; idx += 1) {
+        const metric = row[monthKey]?.[idx];
+        const sourceMetric = sourceRow[monthKey]?.[idx];
+        if (!metric || !sourceMetric) continue;
+        componentLinks.forEach(([component, recipeKeys]) => {
+          const code = linkedRecipeCode(recipe, recipeKeys, sourceCosts);
+          if (!code) return;
+          const sourceRaw = safe(sourceCosts.get(code)?.[idx]);
+          const currentRaw = safe(currentCosts.get(code)?.[idx]);
+          if (!sourceRaw || Math.abs(currentRaw - sourceRaw) < 0.000001) return;
+          metric[component] = safe(sourceMetric[component]) * (currentRaw / sourceRaw);
+        });
+        metric.BM = safe(metric.LG) + safe(metric.KAP1) + safe(metric.KAP2) + safe(metric.TUT) + safe(metric.GG) + safe(metric.DG);
+        metric.TM = safe(metric.A) * metric.BM;
+        metric.KAR = safe(metric.C) - metric.TM;
+        metric.MARJ = safe(metric.C) ? metric.KAR / safe(metric.C) : 0;
+        const delta = metric.TM - safe(sourceMetric.TM);
+        if (Math.abs(delta) < 0.000001) continue;
+        const category = canonicalCategoryName(row.category);
+        const key = `${idx + 1}|${category}`;
+        categoryDelta.set(key, safe(categoryDelta.get(key)) + delta);
+      }
+    });
+
+    const yearData = data.years?.[year];
+    if (!yearData || !categoryDelta.size) return;
+    categoryDelta.forEach((delta, key) => {
+      const [monthText, categoryName] = key.split("|");
+      const month = (yearData.yonPlus || []).find(entry => entry.month === Number(monthText));
+      const category = month?.categories?.find(entry => canonicalCategoryName(entry.name) === categoryName);
+      if (category) category.maliyet = safe(category.maliyet) + delta;
+    });
+    recalcIncomeOverview(yearData);
+    recalcExpenseOverview(yearData);
+  });
+}
+
+function refreshLinkedControls(data) {
+  Object.entries(data?.years || {}).forEach(([year, yearData]) => {
+    const monthlyRevenue = (yearData.yonPlus || []).reduce((sum, month) => sum + safe(month.total?.ciro), 0);
+    const monthlyCost = (yearData.yonPlus || []).reduce((sum, month) => sum + safe(month.total?.maliyet), 0);
+    const categoryRevenue = (yearData.categories || []).reduce((sum, category) => sum + safe(category.ciro), 0);
+    const categoryCost = (yearData.categories || []).reduce((sum, category) => sum + safe(category.maliyet), 0);
+    const expenseTotal = (yearData.expenseRows || []).reduce((sum, row) => sum + safe(row?.[13]), 0);
+    data.controls[year] = [
+      { label: "Aylık toplam ciro = Genel Bakış ciro", left: monthlyRevenue, right: safe(yearData.overview?.totalRevenue) },
+      { label: "Kategori ciro = Genel Bakış ciro", left: categoryRevenue, right: safe(yearData.overview?.totalRevenue) },
+      { label: "Aylık toplam maliyet = Genel Bakış maliyet", left: monthlyCost, right: safe(yearData.overview?.totalCost) },
+      { label: "Kategori maliyet = Genel Bakış maliyet", left: categoryCost, right: safe(yearData.overview?.totalCost) },
+      { label: "Gider satırları = Genel Bakış gider", left: expenseTotal, right: safe(yearData.overview?.totalExpense) },
+      { label: "Net kâr = Brüt kâr - gider - vergi", left: safe(yearData.overview?.netProfit), right: safe(yearData.overview?.grossProfit) - expenseTotal - safe(yearData.overview?.corporateTax) }
+    ];
   });
 }
 
@@ -1044,11 +1159,11 @@ function saveManualIncomeCell(cell) {
     row[month] = nextValue;
     row[13] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1])).reduce((sum, value) => sum + value, 0);
     persistExpenseRowEdit(state.year, row);
-    recalcExpenseOverview(currentYearData());
   } else {
     persistManualIncomeEdit(state.year, kind, itemName, month, nextValue);
-    DATA = hydrateData(BASE_DATA);
   }
+  DETAIL_CACHE = null;
+  DATA = hydrateData(BASE_DATA);
   render();
   return true;
 }
@@ -1494,10 +1609,43 @@ function normalizePayrollDetailRow(row) {
   };
 }
 
+function applyManualEditsToSalesDetails(rows, edits) {
+  const adjusted = rows.map(row => ({ ...row }));
+  Object.entries(edits || {}).forEach(([year, yearEdits]) => {
+    ["sales", "qty"].forEach(kind => {
+      Object.entries(yearEdits?.[kind] || {}).forEach(([categoryName, targets]) => {
+        if (!Array.isArray(targets)) return;
+        for (let month = 1; month <= 12; month += 1) {
+          const target = targets[month - 1];
+          if (target === null || target === undefined || target === "") continue;
+          const matches = adjusted.filter(row => row.year === Number(year) && row.month === month && sameLabel(row.category, categoryName));
+          const field = kind === "sales" ? "amount" : "quantity";
+          const current = matches.reduce((sum, row) => sum + safe(row[field]), 0);
+          const delta = safe(target) - current;
+          if (Math.abs(delta) >= 0.001) {
+            adjusted.push({
+              year: Number(year), month, date: "", invoiceNo: "MANUEL-DÜZELTME",
+              customerCode: "MANUEL", customerName: "MANUEL DÜZELTME",
+              productCode: "MANUEL", product: `${categoryName} manuel ${kind === "sales" ? "satış" : "miktar"} düzeltmesi`,
+              unit: defaultUnitForCategory(categoryName), quantity: kind === "qty" ? delta : 0,
+              amount: kind === "sales" ? delta : 0, category: categoryName,
+              sourceFile: "Rapor Merkezi manuel düzeltme", manualAdjustment: true
+            });
+          }
+        }
+      });
+    });
+  });
+  return adjusted;
+}
+
 function detailStore() {
   if (DETAIL_CACHE) return DETAIL_CACHE;
   const imports = loadImports();
-  const salesRows = [...(DETAIL_BASE.sales || []).map(normalizeSalesDetailRow), ...(imports.salesRows || []).map(normalizeSalesDetailRow)]
+  const salesRows = applyManualEditsToSalesDetails(
+    [...(DETAIL_BASE.sales || []).map(normalizeSalesDetailRow), ...(imports.salesRows || []).map(normalizeSalesDetailRow)],
+    loadManualEdits()
+  )
     .filter(row => row.year && row.month && (row.amount || row.quantity) && row.product)
     .sort((a, b) =>
     a.year - b.year ||
@@ -1513,6 +1661,31 @@ function detailStore() {
   ).sort((a, b) => a.year - b.year || a.month - b.month || b.net - a.net || a.employee.localeCompare(b.employee, "tr"));
   DETAIL_CACHE = { salesRows, payrollRows };
   return DETAIL_CACHE;
+}
+
+function applyLinkedCustomerTotals(data) {
+  if (!data?.years) return;
+  const grouped = new Map();
+  detailStore().salesRows.filter(row => !isRentIncomeRow(row)).forEach(row => {
+    const customer = salesDisplayIdentityLabel(row);
+    if (!customer || customer === "Kaynak detay satırı") return;
+    const key = `${row.year}|${customer}`;
+    grouped.set(key, safe(grouped.get(key)) + safe(row.amount));
+  });
+  Object.entries(data.years).forEach(([year, yearData]) => {
+    const totalRevenue = safe(yearData.overview?.totalRevenue);
+    const rows = [...grouped.entries()]
+      .filter(([key]) => key.startsWith(`${year}|`))
+      .map(([key, revenue]) => ({ name: key.slice(String(year).length + 1), revenue }))
+      .sort((left, right) => right.revenue - left.revenue || left.name.localeCompare(right.name, "tr"));
+    yearData.yonRapor = yearData.yonRapor || {};
+    yearData.yonRapor.topCustomers = rows.map((row, index) => ({
+      rank: index + 1,
+      name: row.name,
+      revenue: row.revenue,
+      share: totalRevenue ? row.revenue / totalRevenue : 0
+    }));
+  });
 }
 
 function summarizeSalesRows(rows = []) {
@@ -3154,7 +3327,11 @@ function setCostCellValue(wkod, monthIndex, nextValue, renderAfter = true) {
   target[monthIndex] = safe(nextValue);
   persistCostRowEdit(state.year, code, target);
   lastCostEdit = { year: state.year, wkod: code, monthIndex, oldValue, nextValue: safe(nextValue) };
-  if (renderAfter) renderCosts();
+  if (renderAfter) {
+    DETAIL_CACHE = null;
+    DATA = hydrateData(BASE_DATA);
+    render();
+  }
   return true;
 }
 
@@ -3499,7 +3676,9 @@ function setExpenseCellValue(rowIndex, monthIndex, nextValue, note = null) {
     oldValue,
     nextValue: safe(nextValue)
   };
-  renderExpenses();
+  DETAIL_CACHE = null;
+  DATA = hydrateData(BASE_DATA);
+  render();
   return true;
 }
 
