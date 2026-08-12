@@ -3659,19 +3659,16 @@ function matchedKaplamaSourceRow(targetRow, data) {
   ) || null;
 }
 
-function kap1Kap2RatioSeries(targetRow, sourceRow) {
+function kap1Kap2Ratio(targetRow, sourceRow) {
   const targetMonths = targetRow?.months25;
   const sourceMonths = sourceRow?.months25;
   if (!Array.isArray(targetMonths) || !Array.isArray(sourceMonths)) return null;
-  const ratios = Array.from({ length: 12 }, (_, idx) => {
+  for (let idx = 0; idx < 12; idx += 1) {
     const targetValue = safe(targetMonths[idx]);
     const sourceValue = safe(sourceMonths[idx]);
-    if (!targetValue || !sourceValue) return null;
-    return targetValue / sourceValue;
-  });
-  const fallback = [...ratios].reverse().find(value => value) || ratios.find(value => value) || null;
-  if (fallback === null) return null;
-  return ratios.map(value => value || fallback);
+    if (targetValue && sourceValue) return targetValue / sourceValue;
+  }
+  return null;
 }
 
 function derivedKap1Kap2Cost(row, year, monthIndex, data) {
@@ -3682,8 +3679,7 @@ function derivedKap1Kap2Cost(row, year, monthIndex, data) {
   const sourceMonths = costMonthsForYear(sourceRow, year);
   const sourceValue = safe(sourceMonths?.[monthIndex]);
   if (!sourceValue) return null;
-  const ratios = kap1Kap2RatioSeries(row, sourceRow);
-  const ratio = ratios?.[monthIndex] || null;
+  const ratio = kap1Kap2Ratio(row, sourceRow);
   if (!ratio) return null;
   return sourceValue * ratio;
 }
