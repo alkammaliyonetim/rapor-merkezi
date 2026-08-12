@@ -492,7 +492,7 @@ async function ensureDetailDataLoaded({ rerender = false } = {}) {
   if (DETAIL_BASE?.sales?.length || window.REPORT_DETAIL_DATA) {
     DETAIL_BASE = window.REPORT_DETAIL_DATA || DETAIL_BASE;
     if (rerender) {
-      DETAIL_CACHE = null;
+      recomputeData();
       render();
     }
     return DETAIL_BASE;
@@ -500,7 +500,7 @@ async function ensureDetailDataLoaded({ rerender = false } = {}) {
   if (DETAIL_LOAD_PROMISE) {
     const loaded = await DETAIL_LOAD_PROMISE;
     if (rerender) {
-      DETAIL_CACHE = null;
+      recomputeData();
       render();
     }
     return loaded;
