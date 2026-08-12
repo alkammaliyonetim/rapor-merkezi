@@ -110,6 +110,7 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-table .income-history-line.muted{opacity:.58}
 .income-table .income-history-year{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:17px;padding:0 5px;border-radius:999px;background:rgba(15,23,42,.16);font-weight:900;font-size:10.5px;color:#0f172a}
 .income-table .income-history-value{font-variant-numeric:tabular-nums;font-size:11.5px;font-weight:800;text-align:right}
+.income-table .income-history-unit{margin-left:2px;font-size:9.5px;font-weight:600;color:#475569;letter-spacing:.2px}
 .income-table .manual-editable{box-shadow:inset 0 0 0 1px rgba(22,163,74,.48)}
 .income-table .manual-editable:hover{outline:2px solid #16a34a;outline-offset:-2px}
 .income-table .manual-editable::after{content:"";display:inline-block;width:5px;height:5px;margin-left:4px;border-radius:50%;background:#16a34a;vertical-align:middle}

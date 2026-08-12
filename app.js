@@ -2667,17 +2667,22 @@ function formatIncomeHoverValue(value, format = "money", unit = "") {
 }
 
 function formatIncomeInlineHistoryValue(value, format = "money") {
+  const { number, unit } = formatIncomeInlineHistoryValueParts(value, format);
+  return unit ? `${number} ${unit}` : number;
+}
+
+function formatIncomeInlineHistoryValueParts(value, format = "money") {
   const numeric = safe(value);
   const abs = Math.abs(numeric);
   if (format === "qty") {
-    if (abs >= 1000000) return `${num(numeric / 1000000, 1)} mn`;
-    if (abs >= 1000) return `${num(numeric / 1000, 1)}k`;
-    return num(numeric, 0);
+    if (abs >= 1000000) return { number: num(numeric / 1000000, 1), unit: "mn" };
+    if (abs >= 1000) return { number: num(numeric / 1000, 1), unit: "k" };
+    return { number: num(numeric, 0), unit: "" };
   }
-  if (abs >= 1000000000) return `${num(numeric / 1000000000, 1)} mlr`;
-  if (abs >= 1000000) return `${num(numeric / 1000000, 1)} mn`;
-  if (abs >= 1000) return `${num(numeric / 1000, 0)}k`;
-  return money(numeric);
+  if (abs >= 1000000000) return { number: num(numeric / 1000000000, 1), unit: "mlr" };
+  if (abs >= 1000000) return { number: num(numeric / 1000000, 1), unit: "mn" };
+  if (abs >= 1000) return { number: num(numeric / 1000, 0), unit: "k" };
+  return { number: money(numeric), unit: "" };
 }
 
 function metricMonthCovered(yearData, kind, month, itemName = "") {
@@ -2714,12 +2719,15 @@ function buildIncomeHistoryHtml(kind, month, itemName = "", format = "money", un
   if (!historyRows.length) return "";
   return `
     <div class="income-history">
-      ${historyRows.map(row => `
+      ${historyRows.map(row => {
+        const parts = formatIncomeInlineHistoryValueParts(row.value, format);
+        return `
         <span class="income-history-line ${row.covered ? "" : "is-empty"}" title="${esc(`${row.year} aynı ay: ${row.text}`)}">
           <span class="income-history-year">${esc(String(row.year).slice(-2))}</span>
-          <span class="income-history-value">${esc(formatIncomeInlineHistoryValue(row.value, format))}</span>
+          <span class="income-history-value">${esc(parts.number)}${parts.unit ? `<span class="income-history-unit">${esc(parts.unit)}</span>` : ""}</span>
         </span>
-      `).join("")}
+      `;
+      }).join("")}
     </div>
   `;
 }
