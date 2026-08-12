@@ -1,24 +1,69 @@
+function parseRateValue(rawValue) {
+  const text = String(rawValue ?? "").trim();
+  if (!text) return null;
+  const normalized = text
+    .replace(/\s+/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+
+function extractCurrencyField(xml, currencyCode, fieldName) {
+  const pattern = new RegExp(
+    `<Currency\\b[^>]*CurrencyCode=(?:"${currencyCode}"|'${currencyCode}'|${currencyCode})[\\s\\S]*?<${fieldName}>([^<]+)<\\/${fieldName}>[\\s\\S]*?<\\/Currency>`,
+    "i"
+  );
+  const match = xml.match(pattern);
+  return parseRateValue(match?.[1]);
+}
+
 function extractRate(xml, currencyCode) {
-  const blockMatch = xml.match(new RegExp(`<Currency[^>]*CurrencyCode="${currencyCode}"[\\s\\S]*?</Currency>`));
-  if (!blockMatch) return null;
-  const block = blockMatch[0];
-  const buying = block.match(/<ForexBuying>([\d.]+)<\/ForexBuying>/);
-  const selling = block.match(/<ForexSelling>([\d.]+)<\/ForexSelling>/);
-  if (!buying && !selling) return null;
+  const buying = extractCurrencyField(xml, currencyCode, "ForexBuying");
+  const selling = extractCurrencyField(xml, currencyCode, "ForexSelling");
+  if (buying === null && selling === null) return null;
   return {
-    buying: buying ? Number(buying[1]) : null,
-    selling: selling ? Number(selling[1]) : null
+    buying,
+    selling
+  };
+}
+
+function isFutureMonth(date) {
+  const today = new Date();
+  const todayYear = today.getUTCFullYear();
+  const todayMonth = today.getUTCMonth();
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  return year > todayYear || (year === todayYear && month > todayMonth);
+}
+
+function tcmbUrlForDate(date) {
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = date.getUTCFullYear();
+  return {
+    dd,
+    mm,
+    yyyy,
+    url: `https://www.tcmb.gov.tr/kurlar/${yyyy}${mm}/${dd}${mm}${yyyy}.xml`
   };
 }
 
 async function fetchTcmbRate(dateStr, currencyCode) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  for (let i = 0; i < 8; i += 1) {
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const yyyy = d.getUTCFullYear();
-    const url = `https://www.tcmb.gov.tr/kurlar/${yyyy}${mm}/${dd}${mm}${yyyy}.xml`;
+  const requestedDate = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(requestedDate.getTime()) || isFutureMonth(requestedDate)) return null;
+  const year = requestedDate.getUTCFullYear();
+  const month = requestedDate.getUTCMonth();
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const today = new Date();
+  const isCurrentMonth = year === today.getUTCFullYear() && month === today.getUTCMonth();
+  const maxDay = isCurrentMonth ? Math.min(today.getUTCDate(), lastDayOfMonth) : lastDayOfMonth;
+  const startDay = requestedDate.getUTCDate();
+  const finalDay = Math.min(maxDay, startDay + 10);
+
+  for (let day = startDay; day <= finalDay; day += 1) {
+    const probeDate = new Date(Date.UTC(year, month, day));
+    const { dd, mm, yyyy, url } = tcmbUrlForDate(probeDate);
     const res = await fetch(url);
     if (res.ok) {
       const xml = await res.text();
@@ -33,7 +78,6 @@ async function fetchTcmbRate(dateStr, currencyCode) {
         };
       }
     }
-    d.setUTCDate(d.getUTCDate() - 1);
   }
   return null;
 }
