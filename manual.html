@@ -29,7 +29,7 @@
     main { padding: 24px; }
     .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
     .badge { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), #7c3aed); font-weight: 800; }
-    h1, h2, h3 { margin: 0; }
+    h1, h2, h3, h4 { margin: 0; }
     .brand h1 { font-size: 20px; }
     .brand p, .muted { color: var(--muted); margin: 5px 0 0; }
     .nav a { display: block; color: var(--text); text-decoration: none; border: 1px solid var(--border); padding: 12px 14px; border-radius: 12px; margin-bottom: 10px; }
@@ -39,23 +39,40 @@
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
     .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     label { display: block; color: var(--muted); font-size: 13px; }
     input, select, textarea {
-      width: 100%; margin-top: 6px; background: #0f1728; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 14px;
+      width: 100%;
+      margin-top: 6px;
+      background: #0f1728;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
     }
-    textarea { min-height: 40px; resize: vertical; }
+    textarea { min-height: 44px; resize: vertical; }
     button {
-      background: var(--accent); color: #fff; border: 0; border-radius: 11px; padding: 10px 14px; cursor: pointer; font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      border: 0;
+      border-radius: 11px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
     }
     button.secondary { background: #26344f; }
     button.danger { background: var(--bad); }
     button.good { background: var(--good); }
-    .button-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .button-row, .ops-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
     table { width: 100%; border-collapse: collapse; min-width: 900px; }
-    th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 10px; text-align: left; font-size: 14px; }
+    th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 10px; text-align: left; font-size: 14px; vertical-align: top; }
     th { color: var(--muted); font-size: 12px; }
-    td input, td select { min-width: 120px; }
+    td input, td select { min-width: 108px; }
     .table-wrap { overflow-x: auto; }
+    .dense-table th, .dense-table td { padding: 8px 10px; font-size: 13px; }
+    .sales-table th:nth-child(2), .sales-table td:nth-child(2) { min-width: 220px; }
+    .sales-table th:nth-child(9), .sales-table td:nth-child(9) { min-width: 180px; }
     .kpi { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
     .kpi span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 7px; }
     .kpi strong { font-size: 20px; }
@@ -64,13 +81,57 @@
     .status.warn { background: rgba(245,158,11,.15); color: #fcd34d; }
     .status.bad { background: rgba(239,68,68,.15); color: #fca5a5; }
     .notice { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel-2); margin-bottom: 16px; color: var(--muted); }
-    .alert-list { display: grid; gap: 8px; }
+    .alert-list, .import-log, .mini-list { display: grid; gap: 8px; }
     .alert { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: #0f1728; }
     .alert.bad { border-color: rgba(239,68,68,.6); color: #fca5a5; }
     .alert.warn { border-color: rgba(245,158,11,.6); color: #fcd34d; }
     .alert.good { border-color: rgba(34,197,94,.6); color: #86efac; }
-    .file-input { max-width: 280px; }
-    @media (max-width: 980px) { .shell { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--border); } .grid, .two { grid-template-columns: 1fr; } .topbar { flex-direction: column; } }
+    .ops-grid { display: grid; grid-template-columns: 1.25fr .95fr; gap: 16px; margin-bottom: 16px; }
+    .ops-stack { display: grid; gap: 16px; }
+    .dropzone, .soft-box {
+      border: 1px solid var(--border);
+      background: #0f1728;
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .dropzone {
+      border-style: dashed;
+      border-color: rgba(79,140,255,.45);
+      background: rgba(79,140,255,.08);
+      display: grid;
+      gap: 12px;
+    }
+    .dropzone strong, .soft-box h4 { font-size: 15px; }
+    .dropzone p, .soft-box p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .dropzone textarea { min-height: 120px; font-family: Consolas, monospace; font-size: 13px; }
+    .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { display: inline-flex; align-items: center; border: 1px solid var(--border); background: #0f1728; border-radius: 999px; padding: 7px 10px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .mini-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+    .mini-item small { color: var(--muted); display: block; margin-top: 3px; }
+    .mini-item strong { font-size: 13px; }
+    .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+    .section-head p { margin: 4px 0 0; color: var(--muted); }
+    .helper-text { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .metric-note { display: grid; gap: 6px; margin-top: 10px; }
+    .metric-note strong { font-size: 13px; }
+    @media (max-width: 1180px) {
+      .ops-grid, .three { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--border); }
+      .grid, .two, .three { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; }
+    }
   </style>
 </head>
 <body>
@@ -91,50 +152,132 @@
       <div class="topbar">
         <div>
           <h2 id="periodTitle">Verileri Elle Gir</h2>
-          <p class="muted">Kod bilmeden satış, maliyet ve gider girilir; kontrol edilip "Onayla" ile ana rapora işlenir.</p>
+          <p class="muted">Satış, maliyet ve gider verilerini toplu veya manuel gir; sistem kontrol etsin, sonra rapora işle.</p>
         </div>
         <div class="toolbar">
-          <label>Yıl<select id="year"><option>2025</option><option selected>2026</option></select></label>
+          <label>Yıl<select id="year"></select></label>
           <label>Ay<select id="month"></select></label>
           <span id="status" class="status warn">Taslak</span>
         </div>
       </div>
 
-      <div id="saveNotice" class="notice">Taslak veriler tarayıcıda saklanır. "Onayla ve Raporlara İşle" dediğinde veriler ana rapor sistemine kalıcı olarak işlenir.</div>
+      <div id="saveNotice" class="notice">Taslak veriler tarayıcıda saklanır. “Onayla ve Raporlara İşle” dediğinde veriler ana rapor sistemine kalıcı olarak işlenir.</div>
 
       <div class="grid" id="summaryCards"></div>
 
       <section class="card">
-        <h3>1. Satış / Kategori Performansı</h3>
-        <p class="muted">Kategori, ürün açıklaması, WKOD, adet, ciro ve maliyet gir. Kâr ve marj otomatik hesaplanır.</p>
-        <div class="table-wrap"><table><thead><tr><th>Kategori</th><th>Ürün / Açıklama</th><th>WKOD</th><th>Adet</th><th>Ciro</th><th>Maliyet</th><th>Kâr</th><th>Marj</th><th>Açıklama</th><th></th></tr></thead><tbody id="salesBody"></tbody></table></div>
+        <div class="section-head">
+          <div>
+            <h3>1. Operasyon Merkezi</h3>
+            <p>Satış dosyası yükle, geçen ayı kopyala, standart giderleri getir, sonra farkları düzelt.</p>
+          </div>
+          <div class="chip-row" id="opsChips"></div>
+        </div>
+        <div class="ops-grid">
+          <div class="ops-stack">
+            <div class="dropzone">
+              <div>
+                <strong>Satış dosyası yükle (.xls / .xlsx / .csv)</strong>
+                <p>Satış raporunu yükle. Sistem satırları okuyup kategori ve WKOD ile taslağa atar.</p>
+              </div>
+              <input id="salesFile" type="file" accept=".xls,.xlsx,.xlsm,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" />
+              <div class="helper-text">Aynı ay için tekrar yüklemek istersen önce “Bu Ayı Temizle” ya da gereksiz satırları sil.</div>
+            </div>
+            <div class="dropzone">
+              <div>
+                <strong>Excel’den yapıştır</strong>
+                <p>Dosya yüklemeden, Excel tablosunu doğrudan buraya yapıştırıp işleyebilirsin.</p>
+              </div>
+              <textarea id="salesPaste" placeholder="Excel’den kopyalanan tabloyu buraya yapıştır"></textarea>
+              <div class="ops-toolbar">
+                <button id="parsePasteBtn" type="button" class="secondary">Yapıştırmayı İşle</button>
+              </div>
+            </div>
+          </div>
+          <div class="ops-stack">
+            <div class="soft-box">
+              <h4>Hızlı işlemler</h4>
+              <div class="ops-toolbar">
+                <button id="copyPrevBtn" type="button" class="secondary">Geçen Ayı Kopyala</button>
+                <button id="fillExpenseTemplateBtn" type="button" class="secondary">Standart Giderleri Doldur</button>
+                <button id="seedCostBtn" type="button" class="secondary">Aktif WKOD Maliyetlerini Getir</button>
+              </div>
+              <div class="metric-note">
+                <strong>Önerilen akış</strong>
+                <p>1) Satışları yükle 2) Giderleri şablonla doldur 3) Maliyetleri satış WKOD’larından türet 4) Kontrol et 5) Onayla.</p>
+              </div>
+            </div>
+            <div class="soft-box">
+              <h4>Son işlem özeti</h4>
+              <div id="opsSummary" class="mini-list"></div>
+            </div>
+            <div class="soft-box">
+              <h4>İşlem günlüğü</h4>
+              <div id="importLog" class="import-log"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>2. Satış / Kategori Performansı</h3>
+        <p class="muted">Toplu gelen satışlar burada görünür. Kategori, ürün açıklaması, WKOD, adet, ciro ve maliyet kontrol edilir.</p>
+        <div class="table-wrap">
+          <table class="dense-table sales-table">
+            <thead>
+              <tr><th>Kategori</th><th>Ürün / Açıklama</th><th>WKOD</th><th>Adet</th><th>Ciro</th><th>Maliyet</th><th>Kâr</th><th>Marj</th><th>Açıklama</th><th></th></tr>
+            </thead>
+            <tbody id="salesBody"></tbody>
+          </table>
+        </div>
         <div class="button-row"><button id="addSale">Satır Ekle</button></div>
       </section>
 
       <section class="card">
-        <h3>2. Ürün Maliyet Girişi</h3>
-        <p class="muted">WKOD yazınca ürün/kategori otomatik tanınır. Döviz cinsinden girilirse kur tarihine göre TCMB kuru otomatik çekilir. Maliyet, seçtiğiniz başlangıç-bitiş ay aralığının tamamına uygulanır.</p>
+        <h3>3. Ürün Maliyet Girişi</h3>
+        <p class="muted">WKOD yazınca ürün/kategori otomatik tanınır. Döviz ise kur çekilir. Maliyet, seçilen ay aralığına uygulanır.</p>
         <datalist id="wkodOptions"></datalist>
-        <div class="table-wrap"><table><thead><tr><th>WKOD</th><th>Ürün / Kategori</th><th>PB</th><th>Birim Fiyat</th><th>Kur Tarihi</th><th>Kur</th><th>Aralık (Ay)</th><th>Hesaplanan TL/Ay</th><th></th></tr></thead><tbody id="costBody"></tbody></table></div>
+        <div class="table-wrap">
+          <table class="dense-table">
+            <thead>
+              <tr><th>WKOD</th><th>Ürün / Kategori</th><th>PB</th><th>Birim Fiyat</th><th>Kur Tarihi</th><th>Kur</th><th>Aralık (Ay)</th><th>Hesaplanan TL/Ay</th><th></th></tr>
+            </thead>
+            <tbody id="costBody"></tbody>
+          </table>
+        </div>
         <div class="button-row"><button id="addCost">Satır Ekle</button></div>
       </section>
 
       <section class="card">
-        <h3>3. Gider Girişi</h3>
+        <h3>4. Gider Girişi</h3>
         <p class="muted">Ayın giderlerini kalem kalem yaz. Net kâr hesabına otomatik girer.</p>
-        <div class="table-wrap"><table><thead><tr><th>Gider Kalemi</th><th>Tutar</th><th>Açıklama</th><th></th></tr></thead><tbody id="expenseBody"></tbody></table></div>
+        <div class="table-wrap">
+          <table class="dense-table">
+            <thead>
+              <tr><th>Gider Kalemi</th><th>Tutar</th><th>Açıklama</th><th></th></tr>
+            </thead>
+            <tbody id="expenseBody"></tbody>
+          </table>
+        </div>
         <div class="button-row"><button id="addExpense">Satır Ekle</button></div>
       </section>
 
       <section class="card">
-        <h3>4. Müşteri Ciro Girişi</h3>
-        <p class="muted">Bilgi amaçlıdır, sadece bu tarayıcıda saklanır. Ana rapordaki müşteri listesi satış detay verilerinden otomatik hesaplanır.</p>
-        <div class="table-wrap"><table><thead><tr><th>Müşteri Ünvanı</th><th>Ciro</th><th>Açıklama</th><th></th></tr></thead><tbody id="customerBody"></tbody></table></div>
+        <h3>5. Müşteri Ciro Girişi</h3>
+        <p class="muted">Bilgi amaçlıdır; bu tarayıcıda saklanır. Satış toplamıyla mukayese için kullanılır.</p>
+        <div class="table-wrap">
+          <table class="dense-table">
+            <thead>
+              <tr><th>Müşteri Ünvanı</th><th>Ciro</th><th>Açıklama</th><th></th></tr>
+            </thead>
+            <tbody id="customerBody"></tbody>
+          </table>
+        </div>
         <div class="button-row"><button id="addCustomer">Satır Ekle</button></div>
       </section>
 
       <section class="card">
-        <h3>5. Kontrol ve Kaydet</h3>
+        <h3>6. Kontrol ve Kaydet</h3>
         <div id="alerts" class="alert-list"></div>
         <div class="button-row">
           <button id="checkBtn" class="secondary">Kontrol Et</button>
@@ -148,14 +291,13 @@
     </main>
   </div>
 
+  <script src="xlsx.full.min.js"></script>
   <script src="report-data.js"></script>
   <script src="app.js"></script>
   <script>
-    // DATA, BASE_DATA, hydrateData, persistManualIncomeEdit, persistExpenseRowEdit,
-    // persistCostRowEdit and EDIT_PASSWORD all come from app.js above — this page
-    // writes into the exact same live data model the main dashboard reads from.
     const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
-    const storeKey = "woodlent_manual_entries_v1";
+    const storeKey = "woodlent_manual_entries_v2";
+    const opsLogKey = "woodlent_manual_ops_log_v1";
     const fmtMoney = (n) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(Number(n || 0));
     const fmtPct = (n) => Number.isFinite(n) ? `%${(n * 100).toFixed(1)}` : "—";
     const val = (x) => Number(String(x || "0").replace(/\./g, "").replace(",", ".")) || 0;
@@ -174,6 +316,7 @@
 
     const now = new Date();
     let db = loadDb();
+    let opsLog = loadOpsLog();
     let mstate = {
       year: DATA.years[String(now.getFullYear())] ? String(now.getFullYear()) : yearsAvailable().slice(-1)[0],
       month: String(now.getMonth() + 1)
@@ -181,11 +324,22 @@
 
     function loadDb() { try { return JSON.parse(localStorage.getItem(storeKey)) || {}; } catch { return {}; } }
     function saveDb() { localStorage.setItem(storeKey, JSON.stringify(db)); }
+    function loadOpsLog() { try { return JSON.parse(localStorage.getItem(opsLogKey)) || []; } catch { return []; } }
+    function saveOpsLog() { localStorage.setItem(opsLogKey, JSON.stringify(opsLog.slice(0, 30))); }
     function key() { return `${mstate.year}-${mstate.month}`; }
-    function emptyEntry() {
-      return { status: "Taslak", sales: [], costs: [], expenses: [], customers: [] };
-    }
+    function emptyEntry() { return { status: "Taslak", sales: [], costs: [], expenses: [], customers: [] }; }
     function entry() { db[key()] = db[key()] || emptyEntry(); return db[key()]; }
+    function previousPeriodKey() {
+      const month = Number(mstate.month);
+      const year = Number(mstate.year);
+      return month === 1 ? `${year - 1}-12` : `${year}-${month - 1}`;
+    }
+    function logOp(level, text) {
+      opsLog.unshift({ level, text, at: new Date().toLocaleString("tr-TR") });
+      opsLog = opsLog.slice(0, 30);
+      saveOpsLog();
+      renderOpsLog();
+    }
 
     function catSelect(value) {
       const cats = categoriesForYear(mstate.year);
@@ -195,8 +349,9 @@
       const labels = expenseLabelsForYear(mstate.year);
       return `<select data-field="name">${labels.map(l => `<option ${l===value?"selected":""}>${l}</option>`).join("")}</select>`;
     }
-    function curSelect(value) { return `<select data-field="currency"><option ${value==="TRY"?"selected":""}>TRY</option><option ${value==="USD"?"selected":""}>USD</option><option ${value==="EUR"?"selected":""}>EUR</option></select>`; }
-
+    function curSelect(value) {
+      return `<select data-field="currency"><option ${value==="TRY"?"selected":""}>TRY</option><option ${value==="USD"?"selected":""}>USD</option><option ${value==="EUR"?"selected":""}>EUR</option></select>`;
+    }
     function findCostRow(wkod) {
       const code = String(wkod || "").trim();
       if (!code) return null;
@@ -205,7 +360,7 @@
     function populateWkodOptions() {
       const list = q("#wkodOptions");
       if (!list) return;
-      list.innerHTML = (DATA.costRows || []).map(r => `<option value="${r.WKOD}">${(r["ÜRÜN"]||"").toString().slice(0,40)}</option>`).join("");
+      list.innerHTML = (DATA.costRows || []).map(r => `<option value="${r.WKOD}">${String(r["ÜRÜN"] || "").slice(0, 50)}</option>`).join("");
     }
     function monthSelect(field, value) {
       return `<select data-field="${field}">${months.map((m,i)=>`<option value="${i+1}" ${Number(value)===i+1?"selected":""}>${m}</option>`).join("")}</select>`;
@@ -216,6 +371,259 @@
       const rate = row.currency === "TRY" ? 1 : valRate(row.fxRate);
       return val(row.unitPrice) * (rate || 0);
     }
+    function ensureUniqueSalesRows(rows) {
+      const seenSourceKeys = new Set();
+      const output = [];
+      rows.forEach((row, index) => {
+        const sourceKey = String(row.sourceKey || "").trim();
+        if (sourceKey) {
+          if (seenSourceKeys.has(sourceKey)) return;
+          seenSourceKeys.add(sourceKey);
+        }
+        output.push({ ...row, sortKey: row.sortKey || sourceKey || `manual-${index}` });
+      });
+      return output;
+    }
+    function summarizeSalesRows(rows) {
+      return {
+        count: rows.length,
+        revenue: rows.reduce((sum, row) => sum + val(row.revenue), 0),
+        qty: rows.reduce((sum, row) => sum + val(row.qty), 0)
+      };
+    }
+    function renderOpsSummary() {
+      const e = entry();
+      const t = totals(e);
+      const prev = db[previousPeriodKey()] || emptyEntry();
+      const items = [
+        { label: "Satış satırı", value: e.sales.length, note: `${fmtMoney(t.revenue)} toplam ciro` },
+        { label: "Maliyet satırı", value: e.costs.length, note: `${fmtMoney(t.cost)} toplam maliyet` },
+        { label: "Gider satırı", value: e.expenses.length, note: `${fmtMoney(t.expense)} toplam gider` },
+        { label: "Önceki dönem", value: prev.sales.length + prev.expenses.length + prev.costs.length, note: previousPeriodKey() }
+      ];
+      q("#opsSummary").innerHTML = items.map(item => `<div class="mini-item"><div><strong>${item.label}</strong><small>${item.note}</small></div><strong>${item.value}</strong></div>`).join("");
+    }
+    function renderOpsLog() {
+      const host = q("#importLog");
+      if (!host) return;
+      if (!opsLog.length) {
+        host.innerHTML = `<div class="alert">Henüz işlem yapılmadı.</div>`;
+        return;
+      }
+      host.innerHTML = opsLog.map(item => `<div class="alert ${item.level}"><strong>${item.at}</strong><br>${item.text}</div>`).join("");
+    }
+    function renderOpsChips() {
+      const e = entry();
+      const chips = [
+        `Dönem ${mstate.year}-${String(mstate.month).padStart(2, "0")}`,
+        `${e.sales.length} satış satırı`,
+        `${e.expenses.length} gider satırı`,
+        `${e.costs.length} maliyet satırı`
+      ];
+      q("#opsChips").innerHTML = chips.map(text => `<span class="chip">${text}</span>`).join("");
+    }
+
+    function parseImportedSalesRows(sourceRows, sourceName = "Dosya") {
+      const rows = [];
+      sourceRows.forEach((raw, index) => {
+        const amount = safe(raw.tutar ?? raw.amount);
+        const qty = safe(raw.miktar ?? raw.quantity);
+        const product = fixMojibakeText(String(raw.urun ?? raw.product ?? "").trim());
+        const wkod = String(raw.kod ?? raw.productCode ?? "").trim();
+        const unit = String(raw.birim ?? raw.unit ?? "").trim();
+        const category = String(raw.kategori ?? raw.category ?? categoryFrom(wkod, product, unit)).trim();
+        if (!product && !wkod) return;
+        if (!amount && !qty) return;
+        rows.push({
+          category,
+          product: product || wkod || "Satış satırı",
+          wkod,
+          qty: qty ? String(qty) : "",
+          revenue: amount ? String(Math.round(amount)) : "",
+          cost: "",
+          note: sourceName,
+          sourceKey: raw.sourceKey || `${sourceName}-${index + 1}`
+        });
+      });
+      return rows;
+    }
+
+    function parseSalesWorksheet(rows2d, sourceName = "Yapıştırma") {
+      if (!rows2d.length) return [];
+      const headerRowIndex = rows2d.findIndex(row => row.some(cell => normalizeText(cell).includes("UNVANI") || normalizeText(cell).includes("MALIN/HIZMETIN CINSI")));
+      const startIndex = headerRowIndex >= 0 ? headerRowIndex : 0;
+      const headers = (rows2d[startIndex] || []).map(cell => normalizeText(cell));
+      const cols = chooseSalesColumnIndices(headers);
+      const yearHint = Number(inferYear(sourceName, mstate.year));
+      const monthHint = Number(mstate.month);
+      const output = [];
+      rows2d.slice(startIndex + 1).forEach((row, rowOffset) => {
+        const product = fixMojibakeText(String(row[cols.rightProduct] || row[cols.leftProduct] || "").trim());
+        const wkod = String(row[cols.code] || "").trim();
+        const qty = safe(row[cols.rightQty] ?? row[cols.leftQty]);
+        const amount = safe(row[cols.rightAmount] ?? row[cols.leftAmount]);
+        const unit = String(row[cols.rightUnit] || "").trim();
+        if (!product && !wkod) return;
+        if (!qty && !amount) return;
+        output.push({
+          year: yearHint,
+          month: monthHint,
+          date: parseDateValueWithHint(row[cols.date], monthHint, yearHint),
+          urun: product,
+          kod: wkod,
+          miktar: qty,
+          tutar: amount,
+          birim: unit,
+          kategori: categoryFrom(wkod, product, unit || ""),
+          sourceKey: `${sourceName}-${startIndex + rowOffset + 2}-${wkod || product || "row"}`
+        });
+      });
+      return output;
+    }
+
+    async function importSalesWorkbook(file) {
+      if (!window.XLSX) throw new Error("Excel motoru yüklenemedi.");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const rows = [];
+      workbook.SheetNames.forEach(name => {
+        const rows2d = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
+        rows.push(...parseSalesWorksheet(rows2d, file.name || name));
+      });
+      return parseImportedSalesRows(rows, file.name);
+    }
+
+    function importPastedSales(text) {
+      const rows2d = String(text || "")
+        .split(/\r?\n/)
+        .map(line => line.split("\t"))
+        .filter(row => row.some(cell => String(cell || "").trim()));
+      return parseImportedSalesRows(parseSalesWorksheet(rows2d, "Excel yapıştırma"), "Excel yapıştırma");
+    }
+
+    function mergeImportedSales(rows, sourceLabel = "İçe aktarım") {
+      const e = entry();
+      const normalized = rows.map(row => ({ ...row, note: row.note || sourceLabel, cost: row.cost || "" }));
+      e.sales = ensureUniqueSalesRows([...e.sales, ...normalized]);
+      e.status = "Taslak";
+      saveDb();
+      const summary = summarizeSalesRows(normalized);
+      logOp("good", `${sourceLabel}: ${summary.count} satır, ${fmtMoney(summary.revenue)} ciro içe aktarıldı.`);
+      const uniqueImportedCodes = [...new Set(normalized.map(row => String(row.wkod || "").trim().toUpperCase()).filter(Boolean))];
+      const unmatchedImportedCodes = uniqueImportedCodes.filter(code => !findCostRow(code));
+      if (unmatchedImportedCodes.length) {
+        logOp("warn", `${sourceLabel}: ${unmatchedImportedCodes.length} WKOD maliyet master'ında bulunamadı. Örnek: ${unmatchedImportedCodes.slice(0, 5).join(", ")}`);
+      }
+      render();
+    }
+
+    function activeCostRowMap(e) {
+      const activeMonth = Number(mstate.month);
+      const map = new Map();
+      (e.costs || []).forEach(row => {
+        const wkod = String(row.wkod || "").trim().toUpperCase();
+        if (!wkod) return;
+        const from = Number(row.monthFrom || activeMonth);
+        const to = Number(row.monthTo || activeMonth);
+        if (activeMonth < Math.min(from, to) || activeMonth > Math.max(from, to)) return;
+        const monthlyTl = computeCostTl(row);
+        if (!monthlyTl) return;
+        map.set(wkod, monthlyTl);
+      });
+      return map;
+    }
+
+    function effectiveSalesCost(row, costMap) {
+      const directCost = val(row.cost);
+      if (directCost) return directCost;
+      const wkod = String(row.wkod || "").trim().toUpperCase();
+      const linkedUnitCost = costMap?.get(wkod) || 0;
+      const qty = val(row.qty);
+      if (linkedUnitCost && qty) return linkedUnitCost * qty;
+      return 0;
+    }
+
+    function salesCostMode(row, costMap) {
+      if (val(row.cost)) return "manual";
+      const wkod = String(row.wkod || "").trim().toUpperCase();
+      const linkedUnitCost = costMap?.get(wkod) || 0;
+      const qty = val(row.qty);
+      if (linkedUnitCost && qty) return "linked";
+      return "missing";
+    }
+
+    function unmatchedSalesCodes(e) {
+      const salesCodes = [...new Set((e.sales || []).map(row => String(row.wkod || "").trim().toUpperCase()).filter(Boolean))];
+      return salesCodes.filter(code => !findCostRow(code));
+    }
+
+    function copyPreviousMonth() {
+      const prev = db[previousPeriodKey()];
+      if (!prev) {
+        logOp("warn", "Önceki dönemde kopyalanacak taslak bulunamadı.");
+        return;
+      }
+      db[key()] = {
+        status: "Taslak",
+        sales: cloneData(prev.sales || []),
+        costs: cloneData(prev.costs || []),
+        expenses: cloneData(prev.expenses || []),
+        customers: cloneData(prev.customers || [])
+      };
+      saveDb();
+      logOp("good", `${previousPeriodKey()} dönemi mevcut aya kopyalandı.`);
+      render();
+    }
+
+    function fillExpenseTemplate() {
+      const e = entry();
+      const labels = expenseLabelsForYear(mstate.year);
+      const existing = new Set((e.expenses || []).map(row => row.name));
+      let added = 0;
+      labels.forEach(label => {
+        if (existing.has(label)) return;
+        e.expenses.push({ name: label, amount: "", note: "Standart gider şablonu" });
+        added += 1;
+      });
+      e.status = "Taslak";
+      saveDb();
+      logOp(added ? "good" : "warn", added ? `${added} gider kalemi şablona eklendi.` : "Tüm standart gider kalemleri zaten ekli.");
+      render();
+    }
+
+    function seedCostFromSales() {
+      const e = entry();
+      const wkods = [...new Set((e.sales || []).map(row => String(row.wkod || "").trim()).filter(Boolean))];
+      if (!wkods.length) {
+        logOp("warn", "Satış satırlarında aktif WKOD bulunamadı.");
+        return;
+      }
+      const seen = new Set((e.costs || []).map(row => String(row.wkod || "").trim().toUpperCase()));
+      let added = 0;
+      wkods.forEach(wkod => {
+        if (seen.has(wkod.toUpperCase())) return;
+        const match = findCostRow(wkod);
+        if (!match) return;
+        const monthsForYear = costMonthsForYear(match, mstate.year);
+        const currentValue = safe(monthsForYear?.[Number(mstate.month) - 1]);
+        e.costs.push({
+          wkod,
+          currency: "TRY",
+          unitPrice: currentValue ? String(Math.round(currentValue)) : "",
+          fxDate: todayIso(),
+          fxRate: "",
+          monthFrom: mstate.month,
+          monthTo: mstate.month,
+          fxNote: currentValue ? "Seçili ay maliyeti öneri olarak getirildi." : "Seçili ay maliyeti boş; elle gir."
+        });
+        added += 1;
+      });
+      e.status = "Taslak";
+      saveDb();
+      logOp(added ? "good" : "warn", added ? `${added} WKOD için maliyet önerisi oluşturuldu.` : "Satışlardaki WKOD’lar için maliyet önerisi üretilemedi.");
+      render();
+    }
+
     async function fetchFxRate(rowIndex) {
       const e = entry(); const row = e.costs[rowIndex]; if (!row) return;
       if (row.currency === "TRY") { row.fxRate = 1; render(); return; }
@@ -239,14 +647,42 @@
       const e = entry();
       q("#status").textContent = e.status || "Taslak";
       q("#status").className = "status " + (e.status === "Raporlara İşlendi" ? "good" : "warn");
-      renderSales(e); renderCosts(e); renderExpenses(e); renderCustomers(e); renderSummary(e); renderAlerts(check(e, false));
+      renderSales(e);
+      renderCosts(e);
+      renderExpenses(e);
+      renderCustomers(e);
+      renderSummary(e);
+      renderAlerts(check(e, false));
+      renderOpsSummary();
+      renderOpsLog();
+      renderOpsChips();
       saveDb();
     }
 
     function renderSales(e) {
+      const costMap = activeCostRowMap(e);
       q("#salesBody").innerHTML = e.sales.map((r,i) => {
-        const profit = val(r.revenue) - val(r.cost); const margin = val(r.revenue) ? profit / val(r.revenue) : NaN;
-        return `<tr data-list="sales" data-i="${i}"><td>${catSelect(r.category)}</td><td><input data-field="product" value="${r.product||""}"></td><td><input data-field="wkod" value="${r.wkod||""}"></td><td><input data-field="qty" value="${r.qty||""}"></td><td><input data-field="revenue" value="${r.revenue||""}"></td><td><input data-field="cost" value="${r.cost||""}"></td><td>${fmtMoney(profit)}</td><td>${fmtPct(margin)}</td><td><input data-field="note" value="${r.note||""}"></td><td><button class="danger" data-del="sales" data-i="${i}">Sil</button></td></tr>`;
+        const effectiveCost = effectiveSalesCost(r, costMap);
+        const profit = val(r.revenue) - effectiveCost;
+        const margin = val(r.revenue) ? profit / val(r.revenue) : NaN;
+        const costMode = salesCostMode(r, costMap);
+        const costHint = costMode === "linked"
+          ? `<div class="helper-text">Oto: ${fmtMoney(effectiveCost)} (${String(r.wkod || "").trim()} üzerinden)</div>`
+          : costMode === "manual"
+            ? `<div class="helper-text">Elle override aktif</div>`
+            : `<div class="helper-text">Bağlı maliyet yok</div>`;
+        return `<tr data-list="sales" data-i="${i}">
+          <td>${catSelect(r.category)}</td>
+          <td><input data-field="product" value="${r.product||""}"></td>
+          <td><input data-field="wkod" value="${r.wkod||""}"></td>
+          <td><input data-field="qty" value="${r.qty||""}"></td>
+          <td><input data-field="revenue" value="${r.revenue||""}"></td>
+          <td><input data-field="cost" value="${r.cost||""}" placeholder="${costMode === "linked" ? String(Math.round(effectiveCost)) : ""}">${costHint}</td>
+          <td>${fmtMoney(profit)}</td>
+          <td>${fmtPct(margin)}</td>
+          <td><input data-field="note" value="${r.note||""}"></td>
+          <td><button class="danger" data-del="sales" data-i="${i}">Sil</button></td>
+        </tr>`;
       }).join("");
     }
 
@@ -256,14 +692,16 @@
         const match = findCostRow(r.wkod);
         const wkodClass = !r.wkod ? "" : (match ? "good" : "bad");
         const wkodBorder = wkodClass === "good" ? "border-color:var(--good)" : wkodClass === "bad" ? "border-color:var(--bad)" : "";
-        const info = match ? `${match["ÜRÜN"]||"—"} <span class="muted">/ ${match["KATEGORİ"]||"—"}</span>` : (r.wkod ? `<span style="color:var(--bad)">WKOD bulunamadı — kaydedilmeyecek</span>` : `<span class="muted">WKOD girin</span>`);
+        const info = match
+          ? `${match["ÜRÜN"]||"—"} <span class="muted">/ ${match["KATEGORİ"]||match["KATEGORÄ°"]||"—"}</span>`
+          : (r.wkod ? `<span style="color:var(--bad)">WKOD bulunamadı — kaydedilmeyecek</span>` : `<span class="muted">WKOD girin</span>`);
         const isForeign = (r.currency || "TRY") !== "TRY";
         const tl = computeCostTl(r);
         return `<tr data-list="costs" data-i="${i}">
           <td><input list="wkodOptions" data-field="wkod" value="${r.wkod||""}" style="${wkodBorder}"></td>
           <td>${info}</td>
           <td>${curSelect(r.currency||"TRY")}</td>
-          <td><input data-field="unitPrice" value="${r.unitPrice||""}" placeholder="${isForeign?"birim fiyat (döviz)":"TL tutar"}"></td>
+          <td><input data-field="unitPrice" value="${r.unitPrice||""}" placeholder="${isForeign ? "birim fiyat (döviz)" : "TL tutar"}"></td>
           <td>${isForeign ? `<input type="date" data-field="fxDate" value="${r.fxDate||todayIso()}">` : `<span class="muted">—</span>`}</td>
           <td>${isForeign ? `<input data-field="fxRate" value="${r.fxRate||""}"><button type="button" class="secondary" data-fx="${i}" style="margin-top:6px;padding:4px 8px;font-size:11px;">Kur Çek</button>${r.fxNote?`<div class="muted" style="font-size:11px;margin-top:4px;">${r.fxNote}</div>`:""}` : `<span class="muted">1</span>`}</td>
           <td>${monthSelect("monthFrom", r.monthFrom||mstate.month)} → ${monthSelect("monthTo", r.monthTo||mstate.month)}</td>
@@ -282,8 +720,9 @@
     }
 
     function totals(e) {
+      const costMap = activeCostRowMap(e);
       const revenue = e.sales.reduce((a,r)=>a+val(r.revenue),0);
-      const cost = e.sales.reduce((a,r)=>a+val(r.cost),0);
+      const cost = e.sales.reduce((a,r)=>a+effectiveSalesCost(r, costMap),0);
       const gross = revenue - cost;
       const expense = e.expenses.reduce((a,r)=>a+val(r.amount),0);
       const net = gross - expense;
@@ -292,18 +731,31 @@
 
     function renderSummary(e) {
       const t = totals(e);
-      q("#summaryCards").innerHTML = [["Toplam Ciro", fmtMoney(t.revenue)], ["Toplam Maliyet", fmtMoney(t.cost)], ["Brüt Kâr", fmtMoney(t.gross)], ["Brüt Marj", fmtPct(t.grossMargin)], ["Toplam Gider", fmtMoney(t.expense)], ["Net Kâr", fmtMoney(t.net)], ["Net Marj", fmtPct(t.netMargin)], ["Veri Dönemi", `${mstate.year} ${months[Number(mstate.month)-1]}`]].map(x=>`<div class="kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join("");
+      q("#summaryCards").innerHTML = [
+        ["Toplam Ciro", fmtMoney(t.revenue)],
+        ["Toplam Maliyet", fmtMoney(t.cost)],
+        ["Brüt Kâr", fmtMoney(t.gross)],
+        ["Brüt Marj", fmtPct(t.grossMargin)],
+        ["Toplam Gider", fmtMoney(t.expense)],
+        ["Net Kâr", fmtMoney(t.net)],
+        ["Net Marj", fmtPct(t.netMargin)],
+        ["Veri Dönemi", `${mstate.year} ${months[Number(mstate.month)-1]}`]
+      ].map(x=>`<div class="kpi"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join("");
     }
 
     function check(e, mark) {
       const alerts = [];
       const seen = new Set();
+      const costMap = activeCostRowMap(e);
       e.sales.forEach((r,i)=>{
         if (!r.category) alerts.push(["bad", `Satış ${i+1}: kategori boş.`]);
+        if (!String(r.product||"").trim()) alerts.push(["warn", `Satış ${i+1}: ürün açıklaması boş.`]);
         if (!String(r.wkod||"").trim()) alerts.push(["bad", `Satış ${i+1}: WKOD boş.`]);
-        if (val(r.revenue) && !val(r.cost)) alerts.push(["bad", `Satış ${i+1}: cirosu var ama maliyeti yok.`]);
-        if (val(r.cost) && !val(r.revenue)) alerts.push(["warn", `Satış ${i+1}: maliyeti var ama cirosu yok.`]);
-        const profit = val(r.revenue)-val(r.cost); const margin = val(r.revenue) ? profit/val(r.revenue) : 0;
+        const linkedCost = effectiveSalesCost(r, costMap);
+        if (val(r.revenue) && !linkedCost) alerts.push(["bad", `Satış ${i+1}: cirosu var ama maliyeti yok.`]);
+        if (linkedCost && !val(r.revenue)) alerts.push(["warn", `Satış ${i+1}: maliyeti var ama cirosu yok.`]);
+        const profit = val(r.revenue)-linkedCost;
+        const margin = val(r.revenue) ? profit/val(r.revenue) : 0;
         if (profit < 0) alerts.push(["bad", `Satış ${i+1}: negatif kâr.`]);
         if (val(r.revenue) && margin < .08) alerts.push(["warn", `Satış ${i+1}: marj çok düşük (${fmtPct(margin)}).`]);
         const wk = String(r.wkod||"").trim().toUpperCase();
@@ -312,6 +764,11 @@
       if (!e.sales.length) alerts.push(["warn", "Satış satırı girilmemiş."]);
       if (!e.expenses.some(r=>val(r.amount)>0)) alerts.push(["warn", "Bu ay için gider girilmemiş."]);
       if (!e.costs.length) alerts.push(["warn", "Ürün maliyet satırı girilmemiş."]);
+      const unmatchedCodes = unmatchedSalesCodes(e);
+      if (unmatchedCodes.length) alerts.push(["warn", `${unmatchedCodes.length} satış WKOD'u maliyet master'ı ile eşleşmiyor. Örnek: ${unmatchedCodes.slice(0, 5).join(", ")}`]);
+      const customerTotal = e.customers.reduce((sum, row) => sum + val(row.revenue), 0);
+      const salesTotal = e.sales.reduce((sum, row) => sum + val(row.revenue), 0);
+      if (e.customers.length && Math.abs(customerTotal - salesTotal) > 1000) alerts.push(["warn", `Müşteri toplamı ile satış toplamı farklı (${fmtMoney(customerTotal)} / ${fmtMoney(salesTotal)}).`]);
       e.costs.forEach((r,i)=>{
         if (!String(r.wkod||"").trim()) { alerts.push(["bad", `Maliyet ${i+1}: WKOD boş.`]); return; }
         if (!findCostRow(r.wkod)) { alerts.push(["bad", `Maliyet ${i+1}: WKOD "${r.wkod}" tanınmıyor, kaydedilmeyecek.`]); return; }
@@ -321,7 +778,7 @@
       });
       if (!e.customers.length) alerts.push(["warn", "Müşteri ciro satırı girilmemiş."]);
       if (!alerts.length) alerts.push(["good", "Kontrol temiz. Onaylamaya hazır."]);
-      if (mark) { e.status = alerts.some(a=>a[0]==="bad") ? "Kontrol Bekliyor" : "Kontrol Bekliyor"; }
+      if (mark) e.status = "Kontrol Bekliyor";
       return alerts;
     }
 
@@ -329,9 +786,13 @@
 
     function exportPayload() {
       const e = entry(); const t = totals(e); const m = Number(mstate.month); const label = months[m-1];
+      const costMap = activeCostRowMap(e);
       const categoriesAgg = categoriesForYear(mstate.year).map(c => {
         const rows = e.sales.filter(r=>r.category===c);
-        const ciro = rows.reduce((a,r)=>a+val(r.revenue),0); const maliyet = rows.reduce((a,r)=>a+val(r.cost),0); const adet = rows.reduce((a,r)=>a+val(r.qty),0); const kar = ciro-maliyet;
+        const ciro = rows.reduce((a,r)=>a+val(r.revenue),0);
+        const maliyet = rows.reduce((a,r)=>a+effectiveSalesCost(r, costMap),0);
+        const adet = rows.reduce((a,r)=>a+val(r.qty),0);
+        const kar = ciro-maliyet;
         return { name:c, adet, ciro, maliyet, kar, marj: ciro?kar/ciro:0 };
       }).filter(r=>r.ciro||r.maliyet||r.adet);
       return {
@@ -356,7 +817,6 @@
       const year = mstate.year;
       const month = Number(mstate.month);
 
-      // 1) Satış: kategori bazında ciro / adet / maliyet toplanıp yazılır
       categoriesForYear(year).forEach(cat => {
         const rows = e.sales.filter(r => r.category === cat);
         if (!rows.length) return;
@@ -368,7 +828,6 @@
         persistManualIncomeEdit(year, "cost", cat, month, maliyet);
       });
 
-      // 2) Giderler: seçilen ay için ilgili gider satırı güncellenir, diğer aylar korunur
       e.expenses.forEach(x => {
         if (!x.name) return;
         const existingRow = (DATA.years[String(year)]?.expenseRows || []).find(r => r[0] === x.name);
@@ -378,7 +837,6 @@
         persistExpenseRowEdit(year, newRow);
       });
 
-      // 3) Ürün maliyeti (WKOD bazlı, tarih aralığı destekli): sadece 2025/2026 destekleniyor (sistemin kendi yapısı gereği)
       if (["2025", "2026"].includes(String(year))) {
         const byWkod = new Map();
         e.costs.forEach(c => {
@@ -393,7 +851,7 @@
         });
         byWkod.forEach((ranges, wkod) => {
           const sourceRow = findCostRow(wkod);
-          const target = String(year) === "2025" ? sourceRow.months25 : sourceRow.months26;
+          const target = costMonthsForYear(sourceRow, year);
           if (!Array.isArray(target)) return;
           const monthValues = target.slice();
           ranges.forEach(({ from, to, tl }) => {
@@ -403,19 +861,22 @@
         });
       }
 
-      // Bu oturumda art arda kayıt yapılabilsin diye bellekteki veriyi tazele
       DATA = hydrateData(BASE_DATA);
-
       e.status = "Raporlara İşlendi";
       saveDb();
+      logOp("good", `${year}-${String(month).padStart(2, "0")} dönemi ana rapora işlendi.`);
       render();
-      alert("Veriler ana rapor sistemine işlendi. Rapor Merkezi'nde (index.html) görüntüleyebilirsin.");
+      alert("Veriler ana rapor sistemine işlendi. Rapor Merkezi'nde görüntüleyebilirsin.");
       return true;
     }
 
     function downloadJson() {
       const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: "application/json" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `woodlent-manuel-${mstate.year}-${String(mstate.month).padStart(2,"0")}.json`; a.click(); URL.revokeObjectURL(a.href);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `woodlent-manuel-${mstate.year}-${String(mstate.month).padStart(2,"0")}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
 
     function init() {
@@ -427,25 +888,81 @@
       q("#addCost").onclick = () => { entry().costs.push({ wkod:"", currency:"TRY", unitPrice:"", fxDate: todayIso(), fxRate:"", monthFrom: mstate.month, monthTo: mstate.month }); render(); };
       q("#addExpense").onclick = () => { entry().expenses.push({ name: expenseLabelsForYear(mstate.year)[0] || "", amount:"", note:"" }); render(); };
       q("#addCustomer").onclick = () => { entry().customers.push({ name:"", revenue:"", note:"" }); render(); };
-      document.body.addEventListener("input", onEdit); document.body.addEventListener("change", onEdit);
+      q("#copyPrevBtn").onclick = copyPreviousMonth;
+      q("#fillExpenseTemplateBtn").onclick = fillExpenseTemplate;
+      q("#seedCostBtn").onclick = seedCostFromSales;
+      q("#parsePasteBtn").onclick = () => {
+        const text = q("#salesPaste").value;
+        if (!String(text || "").trim()) { logOp("warn", "Yapıştırılacak veri bulunamadı."); return; }
+        const rows = importPastedSales(text);
+        if (!rows.length) { logOp("bad", "Yapıştırılan veriden satış satırı üretilemedi."); return; }
+        mergeImportedSales(rows, "Excel yapıştırma");
+        q("#salesPaste").value = "";
+      };
+      q("#salesFile").onchange = async event => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+          const rows = await importSalesWorkbook(file);
+          if (!rows.length) {
+            logOp("bad", `${file.name}: okunabilir satış satırı bulunamadı.`);
+            return;
+          }
+          mergeImportedSales(rows, file.name);
+        } catch (error) {
+          logOp("bad", `${file.name}: içe aktarma hatası — ${error.message}`);
+        } finally {
+          event.target.value = "";
+        }
+      };
+      document.body.addEventListener("input", onEdit);
+      document.body.addEventListener("change", onEdit);
       document.body.addEventListener("click", e => {
-        const del = e.target.dataset.del; if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); return; }
-        const fx = e.target.dataset.fx; if (fx !== undefined) { fetchFxRate(Number(fx)); }
+        const del = e.target.dataset.del;
+        if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); return; }
+        const fx = e.target.dataset.fx;
+        if (fx !== undefined) { fetchFxRate(Number(fx)); }
       });
       q("#checkBtn").onclick = () => { const e = entry(); renderAlerts(check(e, true)); saveDb(); render(); };
-      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Taslak kaydedildi (bu tarayıcıda). Henüz ana rapora işlenmedi."; };
+      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Taslak kaydedildi (bu tarayıcıda). Henüz ana rapora işlenmedi."; logOp("good", "Taslak kaydedildi."); };
       q("#approveBtn").onclick = commitToReports;
       q("#exportBtn").onclick = downloadJson;
-      q("#clearBtn").onclick = () => { if (confirm("Bu ayın taslağı silinsin mi? (Zaten raporlara işlenmiş veriler bundan etkilenmez.)")) { delete db[key()]; saveDb(); render(); } };
-      q("#importFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const txt = await f.text(); const data = JSON.parse(txt); const manual = data.manualEntry || data; mstate.year = String(manual.year || mstate.year); mstate.month = String(manual.month || mstate.month); db[key()] = { status: manual.status || "Taslak", sales: manual.sales || [], costs: manual.costs || [], expenses: manual.expenses || [], customers: manual.customers || [] }; saveDb(); render(); };
+      q("#clearBtn").onclick = () => {
+        if (confirm("Bu ayın taslağı silinsin mi? (Zaten raporlara işlenmiş veriler bundan etkilenmez.)")) {
+          delete db[key()];
+          saveDb();
+          logOp("warn", `${key()} taslağı temizlendi.`);
+          render();
+        }
+      };
+      q("#importFile").onchange = async e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const txt = await f.text();
+        const data = JSON.parse(txt);
+        const manual = data.manualEntry || data;
+        mstate.year = String(manual.year || mstate.year);
+        mstate.month = String(manual.month || mstate.month);
+        db[key()] = { status: manual.status || "Taslak", sales: manual.sales || [], costs: manual.costs || [], expenses: manual.expenses || [], customers: manual.customers || [] };
+        saveDb();
+        logOp("good", `${f.name}: JSON yedeği geri yüklendi.`);
+        render();
+      };
       render();
     }
 
     function onEdit(ev) {
-      const tr = ev.target.closest("tr[data-list]"); if (!tr || !ev.target.dataset.field) return;
-      const e = entry(); const list = tr.dataset.list; const i = Number(tr.dataset.i); const field = ev.target.dataset.field;
-      const row = e[list][i]; if (!row) return;
-      row[field] = ev.target.value; e.status = "Taslak"; saveDb();
+      const tr = ev.target.closest("tr[data-list]");
+      if (!tr || !ev.target.dataset.field) return;
+      const e = entry();
+      const list = tr.dataset.list;
+      const i = Number(tr.dataset.i);
+      const field = ev.target.dataset.field;
+      const row = e[list][i];
+      if (!row) return;
+      row[field] = ev.target.value;
+      e.status = "Taslak";
+      saveDb();
       if (list === "costs") {
         if (field === "currency" && row.currency !== "TRY" && !row.fxDate) row.fxDate = todayIso();
         if (field === "currency" && row.currency !== "TRY") { fetchFxRate(i); return; }
@@ -453,8 +970,12 @@
         render();
         return;
       }
-      renderSummary(e); renderAlerts(check(e, false));
+      renderSummary(e);
+      renderAlerts(check(e, false));
+      renderOpsSummary();
+      renderOpsChips();
     }
+
     init();
   </script>
 </body>
