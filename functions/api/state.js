@@ -1,4 +1,4 @@
-const KNOWN_KEYS = ["imports", "annualInputs", "expenseEdits", "costEdits", "manualEdits"];
+const KNOWN_KEYS = ["imports", "annualInputs", "expenseEdits", "costEdits", "manualEdits", "manualDrafts", "manualOpsLog"];
 
 function supabaseHeaders(env) {
   return {

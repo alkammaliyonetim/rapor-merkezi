@@ -298,6 +298,9 @@
     const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
     const storeKey = "woodlent_manual_entries_v2";
     const opsLogKey = "woodlent_manual_ops_log_v1";
+    const serverDraftKey = "manualDrafts";
+    const serverOpsLogKey = "manualOpsLog";
+    const syncTimers = {};
     const fmtMoney = (n) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(Number(n || 0));
     const fmtPct = (n) => Number.isFinite(n) ? `%${(n * 100).toFixed(1)}` : "—";
     const val = (x) => Number(String(x || "0").replace(/\./g, "").replace(",", ".")) || 0;
@@ -323,9 +326,55 @@
     };
 
     function loadDb() { try { return JSON.parse(localStorage.getItem(storeKey)) || {}; } catch { return {}; } }
-    function saveDb() { localStorage.setItem(storeKey, JSON.stringify(db)); }
     function loadOpsLog() { try { return JSON.parse(localStorage.getItem(opsLogKey)) || []; } catch { return []; } }
-    function saveOpsLog() { localStorage.setItem(opsLogKey, JSON.stringify(opsLog.slice(0, 30))); }
+    function persistLocalDb() { localStorage.setItem(storeKey, JSON.stringify(db)); }
+    function persistLocalOpsLog() { localStorage.setItem(opsLogKey, JSON.stringify(opsLog.slice(0, 30))); }
+    function queueServerStateSync(keyName, value, delay = 400) {
+      clearTimeout(syncTimers[keyName]);
+      syncTimers[keyName] = setTimeout(() => {
+        fetch("/api/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: keyName, value })
+        }).catch(() => {});
+      }, delay);
+    }
+    function saveDb() {
+      persistLocalDb();
+      queueServerStateSync(serverDraftKey, db);
+    }
+    function saveOpsLog() {
+      opsLog = opsLog.slice(0, 30);
+      persistLocalOpsLog();
+      queueServerStateSync(serverOpsLogKey, opsLog);
+    }
+    async function bootstrapServerBackedManualState() {
+      const localDb = loadDb();
+      const localLog = loadOpsLog();
+      db = localDb;
+      opsLog = localLog;
+      try {
+        const res = await fetch("/api/state");
+        if (!res.ok) return;
+        const serverState = await res.json();
+        const serverDb = serverState?.[serverDraftKey];
+        const serverLog = serverState?.[serverOpsLogKey];
+        const hasServerDb = serverDb && typeof serverDb === "object" && Object.keys(serverDb).length > 0;
+        const hasServerLog = Array.isArray(serverLog) && serverLog.length > 0;
+        if (hasServerDb) {
+          db = serverDb;
+          persistLocalDb();
+        } else if (localDb && Object.keys(localDb).length > 0) {
+          queueServerStateSync(serverDraftKey, localDb, 0);
+        }
+        if (hasServerLog) {
+          opsLog = serverLog.slice(0, 30);
+          persistLocalOpsLog();
+        } else if (Array.isArray(localLog) && localLog.length > 0) {
+          queueServerStateSync(serverOpsLogKey, localLog.slice(0, 30), 0);
+        }
+      } catch {}
+    }
     function key() { return `${mstate.year}-${mstate.month}`; }
     function emptyEntry() { return { status: "Taslak", sales: [], costs: [], expenses: [], customers: [] }; }
     function entry() { db[key()] = db[key()] || emptyEntry(); return db[key()]; }
@@ -656,7 +705,6 @@
       renderOpsSummary();
       renderOpsLog();
       renderOpsChips();
-      saveDb();
     }
 
     function renderSales(e) {
@@ -882,12 +930,12 @@
     function init() {
       q("#year").innerHTML = yearsAvailable().map(y => `<option ${y===mstate.year?"selected":""}>${y}</option>`).join("");
       q("#month").innerHTML = months.map((m,i)=>`<option value="${i+1}" ${String(i+1)===mstate.month?"selected":""}>${m}</option>`).join("");
-      q("#year").onchange = e => { mstate.year = e.target.value; render(); };
-      q("#month").onchange = e => { mstate.month = e.target.value; render(); };
-      q("#addSale").onclick = () => { entry().sales.push({ category: categoriesForYear(mstate.year)[0] || "", product:"", wkod:"", qty:"", revenue:"", cost:"", note:"" }); render(); };
-      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", currency:"TRY", unitPrice:"", fxDate: todayIso(), fxRate:"", monthFrom: mstate.month, monthTo: mstate.month }); render(); };
-      q("#addExpense").onclick = () => { entry().expenses.push({ name: expenseLabelsForYear(mstate.year)[0] || "", amount:"", note:"" }); render(); };
-      q("#addCustomer").onclick = () => { entry().customers.push({ name:"", revenue:"", note:"" }); render(); };
+      q("#year").onchange = e => { mstate.year = e.target.value; saveDb(); render(); };
+      q("#month").onchange = e => { mstate.month = e.target.value; saveDb(); render(); };
+      q("#addSale").onclick = () => { entry().sales.push({ category: categoriesForYear(mstate.year)[0] || "", product:"", wkod:"", qty:"", revenue:"", cost:"", note:"" }); saveDb(); render(); };
+      q("#addCost").onclick = () => { entry().costs.push({ wkod:"", currency:"TRY", unitPrice:"", fxDate: todayIso(), fxRate:"", monthFrom: mstate.month, monthTo: mstate.month }); saveDb(); render(); };
+      q("#addExpense").onclick = () => { entry().expenses.push({ name: expenseLabelsForYear(mstate.year)[0] || "", amount:"", note:"" }); saveDb(); render(); };
+      q("#addCustomer").onclick = () => { entry().customers.push({ name:"", revenue:"", note:"" }); saveDb(); render(); };
       q("#copyPrevBtn").onclick = copyPreviousMonth;
       q("#fillExpenseTemplateBtn").onclick = fillExpenseTemplate;
       q("#seedCostBtn").onclick = seedCostFromSales;
@@ -919,12 +967,12 @@
       document.body.addEventListener("change", onEdit);
       document.body.addEventListener("click", e => {
         const del = e.target.dataset.del;
-        if (del) { entry()[del].splice(Number(e.target.dataset.i),1); render(); return; }
+        if (del) { entry()[del].splice(Number(e.target.dataset.i),1); saveDb(); render(); return; }
         const fx = e.target.dataset.fx;
         if (fx !== undefined) { fetchFxRate(Number(fx)); }
       });
       q("#checkBtn").onclick = () => { const e = entry(); renderAlerts(check(e, true)); saveDb(); render(); };
-      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Taslak kaydedildi (bu tarayıcıda). Henüz ana rapora işlenmedi."; logOp("good", "Taslak kaydedildi."); };
+      q("#saveBtn").onclick = () => { saveDb(); q("#saveNotice").textContent = "Taslak kaydedildi ve merkezi duruma senkronlanıyor. Henüz ana rapora işlenmedi."; logOp("good", "Taslak kaydedildi."); };
       q("#approveBtn").onclick = commitToReports;
       q("#exportBtn").onclick = downloadJson;
       q("#clearBtn").onclick = () => {
@@ -976,7 +1024,7 @@
       renderOpsChips();
     }
 
-    init();
+    bootstrapServerBackedManualState().finally(() => init());
   </script>
 </body>
 </html>
