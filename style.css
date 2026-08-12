@@ -52,7 +52,7 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-totals span{background:#eef6ff;border:1px solid #bfd7ff;border-radius:6px;color:#0f172a;font-weight:800;font-size:11px;padding:6px 8px}
 .income-table-wrap{overflow:auto;max-height:calc(100vh - 148px);background:#fff}
 .income-table{--income-label-col-width:172px;--income-trend-col-width:46px;min-width:1180px;width:100%;border-collapse:separate;border-spacing:0;font-family:Arial,Helvetica,sans-serif}
-.income-table th,.income-table td{border-right:1px solid #111827;border-bottom:1px solid #111827;padding:4px 6px;font-size:12px;line-height:1.15;white-space:nowrap;text-align:right;color:#111827;vertical-align:top;box-sizing:border-box}
+.income-table th,.income-table td{border-right:1px solid #111827;border-bottom:1px solid #111827;padding:5px 8px;font-size:12px;line-height:1.15;white-space:nowrap;text-align:right;color:#111827;vertical-align:top;box-sizing:border-box}
 .income-table thead th{position:sticky;top:0;z-index:4;background:#e5e7eb;font-weight:900;text-align:center;border-top:1px solid #111827}
 .income-table .year-head{background:#f3f300;color:#e11d48;font-weight:950}
 .income-table .month-head-col.odd{background:#f8fafc}
@@ -102,14 +102,14 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-hover-tip .tip-row.history .tip-value{color:#e2e8f0;font-size:11px}
 .income-table .income-value{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 .income-table .income-value:hover{outline:2px solid #2563eb;outline-offset:-2px}
-.income-table .income-cell-stack{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-height:46px;width:100%}
-.income-table .income-main{display:block;font-weight:900;line-height:1.05;align-self:flex-end}
-.income-table .income-history{display:flex;flex-direction:column;align-items:stretch;gap:2px;width:100%}
-.income-table .income-history-line{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-width:0;padding:2px 5px;border-radius:6px;background:rgba(255,255,255,.42);font-size:10px;line-height:1.08;color:#0f172a}
-.income-table .income-history-line.is-empty{opacity:.52;background:rgba(255,255,255,.24);border:1px dashed rgba(15,23,42,.16)}
-.income-table .income-history-line.muted{opacity:.56}
-.income-table .income-history-year{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:14px;padding:0 4px;border-radius:999px;background:rgba(15,23,42,.12);font-weight:900;font-size:9px;color:#0f172a}
-.income-table .income-history-value{font-variant-numeric:tabular-nums;font-size:10px;font-weight:800;text-align:right}
+.income-table .income-cell-stack{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-height:56px;width:100%}
+.income-table .income-main{display:block;font-weight:900;font-size:13.5px;line-height:1.05;align-self:flex-end}
+.income-table .income-history{display:flex;flex-direction:column;align-items:stretch;gap:3px;width:100%}
+.income-table .income-history-line{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-width:0;padding:3px 7px;border-radius:6px;background:rgba(255,255,255,.62);font-size:11.5px;line-height:1.15;color:#0f172a}
+.income-table .income-history-line.is-empty{opacity:.55;background:rgba(255,255,255,.32);border:1px dashed rgba(15,23,42,.18)}
+.income-table .income-history-line.muted{opacity:.58}
+.income-table .income-history-year{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:17px;padding:0 5px;border-radius:999px;background:rgba(15,23,42,.16);font-weight:900;font-size:10.5px;color:#0f172a}
+.income-table .income-history-value{font-variant-numeric:tabular-nums;font-size:11.5px;font-weight:800;text-align:right}
 .income-table .manual-editable{box-shadow:inset 0 0 0 1px rgba(22,163,74,.48)}
 .income-table .manual-editable:hover{outline:2px solid #16a34a;outline-offset:-2px}
 .income-table .manual-editable::after{content:"";display:inline-block;width:5px;height:5px;margin-left:4px;border-radius:50%;background:#16a34a;vertical-align:middle}
