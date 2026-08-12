@@ -3053,11 +3053,10 @@ function filteredCostRows() {
   return DATA.costRows
     .map(row => {
       const months = state.year === "2025" ? row.months25 : row.months26;
-      const completedMonths = completeMissingCostMonths(months);
       const basePrice = safe(row.Base_Price);
-      const selectedCost = completedMonths.values[monthIndex];
+      const selectedCost = safe(months?.[monthIndex]);
       const currency = normalizeCurrency(row.Currency);
-      const monthValues = completedMonths.values;
+      const monthValues = Array.from({ length: 12 }, (_, idx) => safe(months?.[idx]));
       const activeValues = monthValues.filter(value => value > 0);
       const firstValue = activeValues[0] || 0;
       const lastValue = activeValues[activeValues.length - 1] || 0;
@@ -3071,10 +3070,6 @@ function filteredCostRows() {
         basePrice,
         selectedCost,
         monthValues,
-        sourceMonths: completedMonths.sourceMonths,
-        imputedMonths: completedMonths.imputedMonths,
-        sourceFilledCount: completedMonths.sourceFilledCount,
-        imputedCount: completedMonths.imputedCount,
         yearTotal: monthValues.reduce((sum, value) => sum + value, 0),
         yearAvg: activeValues.length ? monthValues.reduce((sum, value) => sum + value, 0) / activeValues.length : 0,
         firstValue,
@@ -3097,32 +3092,6 @@ function filteredCostRows() {
       const rightValue = key.startsWith("m") ? right.monthValues[Number(key.slice(1)) - 1] : right[key];
       return compareSortValues(leftValue, rightValue, state.costSortDir);
     });
-}
-
-// Eksik bir maliyeti 0 saymak ürün maliyetini yapay olarak sıfırlar. Kaynakta
-// boş kalan ayları son bilinen değerle tamamlarız; UI bu hücreleri ayrıca işaretler.
-function completeMissingCostMonths(months) {
-  const raw = Array.from({ length: 12 }, (_, idx) => months?.[idx]);
-  const sourceMonths = raw.map(value => value !== null && value !== undefined && value !== "");
-  const firstKnown = raw.find(value => value !== null && value !== undefined && value !== "");
-  let lastKnown = firstKnown === undefined ? 0 : safe(firstKnown);
-  const imputedMonths = [];
-  const values = raw.map((value, idx) => {
-    if (sourceMonths[idx]) {
-      lastKnown = safe(value);
-      imputedMonths[idx] = false;
-      return lastKnown;
-    }
-    imputedMonths[idx] = true;
-    return lastKnown;
-  });
-  return {
-    values,
-    sourceMonths,
-    imputedMonths,
-    sourceFilledCount: sourceMonths.filter(Boolean).length,
-    imputedCount: imputedMonths.filter(Boolean).length
-  };
 }
 
 function impliedExchangeRate(basePrice, selectedCost, currency) {
@@ -3317,8 +3286,7 @@ function buildEscalationRows() {
   ].filter(Boolean));
   return DATA.costRows
     .map(row => {
-      const sourceMonths = state.year === "2025" ? row.months25 : row.months26;
-      const months = completeMissingCostMonths(sourceMonths).values;
+      const months = state.year === "2025" ? row.months25 : row.months26;
       const points = Array.from({ length: 12 }, (_, idx) => {
         return {
           month: idx + 1,
@@ -3416,10 +3384,7 @@ function buildCostInsights(costRows, productRows) {
     .map(([pb, item]) => item.rateCount ? `${pb}: ${num(item.rateTotal / item.rateCount, 4)} ort. kur` : `${pb}: ${num(item.count)} kayıt`)
     .join(" • ");
   const annualRawTotal = costRows.reduce((sum, row) => sum + row.yearTotal, 0);
-  const completeCards = costRows.filter(row => row.sourceFilledCount === 12).length;
-  const sourceCellCount = costRows.reduce((sum, row) => sum + row.sourceFilledCount, 0);
-  const imputedCellCount = costRows.reduce((sum, row) => sum + row.imputedCount, 0);
-  const totalCellCount = costRows.length * 12;
+  const activeMonths = Array.from({ length: 12 }, (_, idx) => costRows.some(row => safe(row.monthValues?.[idx]))).filter(Boolean).length;
   const topRaw = [...costRows].sort((a, b) => b.yearTotal - a.yearTotal)[0];
   const topRawTrend = [...costRows].filter(row => row.deltaPct !== null).sort((a, b) => b.deltaPct - a.deltaPct)[0];
   const categories = [...new Set(costRows.map(row => row.category).filter(Boolean))].length;
@@ -3430,8 +3395,7 @@ function buildCostInsights(costRows, productRows) {
   const topFixed = [...productRows].sort((a, b) => b.fixedShare - a.fixedShare)[0];
   const topVariable = [...productRows].sort((a, b) => b.variableShare - a.variableShare)[0];
   return [
-    ["Hammadde kartları", num(costRows.length), `${categories} kategori • ${completeCards}/${costRows.length} kart kaynakta 12/12 dolu`],
-    ["Maliyet kapsamı", totalCellCount ? pct(sourceCellCount / totalCellCount) : pct(0), `${num(imputedCellCount)} eksik hücre son bilinen değerle tamamlandı`],
+    ["Hammadde kartları", num(costRows.length), `${categories} kategori • ${activeMonths}/12 ay dolu`],
     ["Yıllık ham maliyet", money(annualRawTotal), topRaw ? `En yüksek: ${esc(topRaw.formattedProduct || topRaw.product)}` : ""],
     ["En yüksek artış", topRawTrend ? esc(topRawTrend.formattedProduct || topRawTrend.product) : "—", topRawTrend ? pct(topRawTrend.deltaPct) : ""],
     ["Döviz kontrolü", currencyText || "Dövizli kayıt yok", "PB ve kullanılan/implied kur"],
@@ -3638,7 +3602,7 @@ function renderCosts() {
   const costMonthIndex = currentCostMonthIndex();
   const costRows = filteredCostRows();
   const productRows = buildProductCostRows();
-  renderAnalysisCards("#costInsightGrid", buildCostInsights(costRows, productRows).slice(0, 7));
+  renderAnalysisCards("#costInsightGrid", buildCostInsights(costRows, productRows).slice(0, 6));
   const costHead = q("#costHead");
   if (costHead) {
     costHead.innerHTML = `<tr>
@@ -3666,10 +3630,9 @@ function renderCosts() {
       ${row.monthValues.map((value, idx) => {
         const edited = isCostCellEdited(row.wkod, idx, value, yearCostEdits);
         return `
-        <td class="cost-month-cell ${edited ? "edited" : ""} ${row.imputedMonths[idx] ? "imputed" : ""}" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
+        <td class="cost-month-cell ${edited ? "edited" : ""}" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}">
           <div class="cost-cell-control">
-            <input class="cost-input cost-protected-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="${row.imputedMonths[idx] ? "Kaynak ay eksik: son bilinen maliyet ileri taşındı" : "Cift tik / sag tik ile sifreli duzenle"}" readonly />
-            ${row.imputedMonths[idx] ? `<span class="cost-imputed" title="Kaynak veri yok; son bilinen maliyet ileri taşındı">T</span>` : ""}
+            <input class="cost-input cost-protected-input" data-wkod="${esc(row.wkod)}" data-month="${idx}" value="${money(value)}" inputmode="decimal" title="Cift tik / sag tik ile sifreli duzenle" readonly />
             ${edited ? `<button class="cost-undo" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx}" title="Kaynak degere don">Geri</button>` : ""}
             <button class="cost-explain" type="button" data-wkod="${esc(row.wkod)}" data-month="${idx + 1}" title="Hesap ve eskalasyon aciklamasi">?</button>
           </div>
@@ -3681,9 +3644,8 @@ function renderCosts() {
       <td>${pct(row.deltaPct)}</td>
     </tr>
   `).join("") || `<tr><td colspan="21">Bu filtreye uygun maliyet kaydı yok.</td></tr>`;
-  const completeCardCount = costRows.filter(row => row.sourceFilledCount === 12).length;
-  const imputedCostCount = costRows.reduce((sum, row) => sum + row.imputedCount, 0);
-  q("#costMeta").textContent = `${costRows.length.toLocaleString("tr-TR")} hammadde kaydı • ${state.year} yıllık görünüm • ${completeCardCount.toLocaleString("tr-TR")}/${costRows.length.toLocaleString("tr-TR")} kart kaynakta 12/12 dolu • ${imputedCostCount.toLocaleString("tr-TR")} eksik hücre son bilinen maliyetle tamamlandı`;
+  const activeMonthCount = Array.from({ length: 12 }, (_, idx) => costRows.some(row => safe(row.monthValues[idx]))).filter(Boolean).length;
+  q("#costMeta").textContent = `${costRows.length.toLocaleString("tr-TR")} hammadde kaydı • ${state.year} yıllık görünüm • ${activeMonthCount}/12 ayda maliyet verisi var • Aylık kolonlardan sıralama yapılabilir`;
 
   const escalationMonthIndex = currentEscalationMonthIndex();
   const escalationRows = buildEscalationRows();
