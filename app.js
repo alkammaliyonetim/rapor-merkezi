@@ -7,15 +7,15 @@ const COST_EDIT_STORAGE_KEY = "raporMerkeziCostEditsV1";
 const MANUAL_EDIT_STORAGE_KEY = "raporMerkeziManualEditsV1";
 const EDIT_WORKBOOK_MARKER = "RAPOR_MERKEZI_EDIT_V1";
 const EDIT_PASSWORD = "2909";
-const APP_VERSION_STAMP = "120820261118";
+const APP_VERSION_STAMP = "120820261530";
 const BASE_DATA = window.REPORT_DATA;
 const DETAIL_BASE = window.REPORT_DETAIL_DATA || { sales: [], payroll: [], payrollExpenseRows: [] };
+const FX_MATRIX_CACHE = {};
+let FX_MATRIX_PENDING = null;
 let DETAIL_CACHE = null;
 let DATA = hydrateData(BASE_DATA);
 let lastExpenseEdit = null;
 let lastCostEdit = null;
-const FX_MATRIX_CACHE = {};
-let FX_MATRIX_PENDING = null;
 function latestAvailableYear() {
   const years = Object.keys(DATA.years || {}).sort((a, b) => Number(a) - Number(b));
   return years.length ? years[years.length - 1] : "2025";
@@ -418,7 +418,13 @@ function hydrateData(base) {
   canonicalizeCategoryNames(data);
   applyExpenseEditsToData(data, loadExpenseEdits());
   applyManualEditsToData(data, loadManualEdits());
-  applyDerivedCostMatrix(data);
+  try {
+    applyDerivedCostMatrix(data);
+  } catch (error) {
+    if (typeof console !== "undefined") {
+      console.error("Derived cost bootstrap skipped:", error);
+    }
+  }
   const costDependencyBaseline = {
     costRows: cloneData(data.costRows),
     masterRows: cloneData(data.masterRows)
