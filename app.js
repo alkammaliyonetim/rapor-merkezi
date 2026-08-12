@@ -1552,6 +1552,7 @@ function comparisonWindowLabel(months, year = state.year) {
 function historicalComparisonRows() {
   const selectedYear = Number(state.year);
   const months = comparisonWindowMonths(selectedYear);
+  const fullYearWindow = months.length === 12;
   return Object.keys(DATA.years || {})
     .map(Number)
     .filter(year => year <= selectedYear)
@@ -1561,11 +1562,11 @@ function historicalComparisonRows() {
       const yearData = DATA.years[yearKey] || { yonPlus: [], overview: {} };
       const summary = yearConfidenceSummary(yearKey);
       const scopedMonths = months.filter(month => uniqueMonths((yearData.yonPlus || []).map(row => row.month)).includes(month));
-      const revenue = scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.ciro), 0);
-      const cost = scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.maliyet), 0);
-      const gross = scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.kar), 0);
-      const expense = scopedMonths.reduce((sum, month) => sum + expenseMonthTotal(yearData, month), 0);
-      const net = gross - expense;
+      const revenue = fullYearWindow ? safe(yearData.overview?.totalRevenue) : scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.ciro), 0);
+      const cost = fullYearWindow ? safe(yearData.overview?.totalCost) : scopedMonths.reduce((sum, month) => sum + safe((yearData.yonPlus || []).find(row => row.month === month)?.total?.maliyet), 0);
+      const gross = fullYearWindow ? safe(yearData.overview?.grossProfit) : revenue - cost;
+      const expense = fullYearWindow ? safe(yearData.overview?.totalExpense) : scopedMonths.reduce((sum, month) => sum + expenseMonthTotal(yearData, month), 0);
+      const net = fullYearWindow ? safe(yearData.overview?.netProfit) : gross - expense;
       const missingOverviewMonths = months.filter(month => !scopedMonths.includes(month));
       const missingDetailMonths = months.filter(month => !summary.detailMonthsLoaded.includes(month));
       const tone = missingDetailMonths.length || missingOverviewMonths.length ? "warn" : "ready";
