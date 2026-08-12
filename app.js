@@ -472,6 +472,14 @@ function recomputeData(overrides = {}) {
   return DATA;
 }
 
+function referenceCostRows() {
+  return BASE_DATA?.costRows || [];
+}
+
+function referenceExpenseRows(year = state.year) {
+  return BASE_DATA?.years?.[String(year)]?.expenseRows || BASE_DATA?.expenseRows || [];
+}
+
 function canonicalCategoryName(value) {
   const text = String(value ?? "").trim();
   if (!text) return text;
@@ -3757,7 +3765,7 @@ async function ensureFxMatrixForYear(year = state.year) {
   if (FX_MATRIX_CACHE[yearKey]) return FX_MATRIX_CACHE[yearKey];
   if (!FX_MATRIX_PENDING) FX_MATRIX_PENDING = {};
   if (FX_MATRIX_PENDING[yearKey]) return FX_MATRIX_PENDING[yearKey];
-  const candidateRows = (BASE_DATA?.costRows || []).filter(row => hasMissingDerivedCostMonths(row, yearKey));
+  const candidateRows = referenceCostRows().filter(row => hasMissingDerivedCostMonths(row, yearKey));
   const currencies = [...new Set(candidateRows.map(row => normalizeCurrency(row.Currency)).filter(currency => currency && currency !== "TL" && currency !== "TRY"))];
   if (!currencies.length) {
     FX_MATRIX_CACHE[yearKey] = {};
@@ -3798,7 +3806,7 @@ function sourceCostRow(wkod) {
   if (!code) return null;
   if (!_sourceCostRowMap) {
     _sourceCostRowMap = new Map();
-    (BASE_DATA?.costRows || []).forEach(row => _sourceCostRowMap.set(String(row?.WKOD ?? ""), row));
+    referenceCostRows().forEach(row => _sourceCostRowMap.set(String(row?.WKOD ?? ""), row));
   }
   return _sourceCostRowMap.get(code) || null;
 }
@@ -4245,7 +4253,7 @@ function updateExpenseCell(rowIndex, monthIndex, rawValue, rerender = true) {
 }
 
 function sourceExpenseValue(label, monthIndex, rowIndex = null) {
-  const sourceRows = BASE_DATA?.years?.[String(state.year)]?.expenseRows || BASE_DATA?.expenseRows || [];
+  const sourceRows = referenceExpenseRows(state.year);
   const sourceRow = rowIndex !== null && sourceRows[rowIndex]?.[0] === label
     ? sourceRows[rowIndex]
     : sourceRows.find(row => row?.[0] === label);
