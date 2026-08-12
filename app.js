@@ -906,6 +906,34 @@ function applyExpenseEditsToData(data, edits) {
   });
 }
 
+function costMonthsField(year) {
+  const yearKey = String(year);
+  if (yearKey === "2025") return "months25";
+  if (yearKey === "2026") return "months26";
+  return null;
+}
+
+function masterTotalsField(year) {
+  const yearKey = String(year);
+  if (yearKey === "2025") return "totals25";
+  if (yearKey === "2026") return "totals26";
+  return null;
+}
+
+function costMonthsForYear(row, year = state.year) {
+  const field = costMonthsField(year);
+  return field ? row?.[field] : null;
+}
+
+function masterTotalsForYear(row, year = state.year) {
+  const field = masterTotalsField(year);
+  return field ? row?.[field] : null;
+}
+
+function costYearSupported(year = state.year) {
+  return Boolean(costMonthsField(year));
+}
+
 function applyCostEditsToData(data, edits) {
   if (!data?.costRows || !edits || typeof edits !== "object") return;
   data.costRows.forEach(row => {
@@ -914,7 +942,7 @@ function applyCostEditsToData(data, edits) {
     ["2025", "2026"].forEach(year => {
       const editedMonths = edits?.[year]?.[wkod];
       if (!Array.isArray(editedMonths)) return;
-      const target = year === "2025" ? row.months25 : row.months26;
+      const target = costMonthsForYear(row, year);
       if (!Array.isArray(target)) return;
       for (let idx = 0; idx < 12; idx += 1) target[idx] = safe(editedMonths[idx]);
     });
@@ -926,7 +954,7 @@ function costRowMap(rows = [], year = "2025") {
   rows.forEach(row => {
     const code = String(row?.WKOD ?? "").trim();
     if (!code) return;
-    map.set(code, year === "2025" ? row.months25 : row.months26);
+    map.set(code, costMonthsForYear(row, year));
   });
   return map;
 }
@@ -940,7 +968,8 @@ function linkedRecipeCode(recipe, keys, availableMap) {
 }
 
 function costDependencyCoverage(year = state.year) {
-  const monthKey = String(year) === "2025" ? "months25" : "months26";
+  const monthKey = costMonthsField(year);
+  if (!monthKey) return { activeProducts: 0, linkedActiveProducts: 0, rate: 0 };
   const availableCodes = new Set((DATA.costRows || []).map(row => String(row.WKOD ?? "")));
   let activeProducts = 0;
   let linkedActiveProducts = 0;
@@ -962,7 +991,8 @@ function costDependencyCoverage(year = state.year) {
 
 function activeProductsUsingCost(wkod, year = state.year) {
   const code = String(wkod ?? "");
-  const monthKey = String(year) === "2025" ? "months25" : "months26";
+  const monthKey = costMonthsField(year);
+  if (!monthKey) return 0;
   return (DATA.masterRows || []).filter(row => {
     const active = (row[monthKey] || []).some(metric => safe(metric?.A) > 0);
     if (!active) return false;
@@ -976,7 +1006,7 @@ function applyCostDependenciesToData(data, baseline) {
   ["2025", "2026"].forEach(year => {
     const sourceCosts = costRowMap(baseline.costRows, year);
     const currentCosts = costRowMap(data.costRows, year);
-    const monthKey = year === "2025" ? "months25" : "months26";
+    const monthKey = costMonthsField(year);
     const categoryDelta = new Map();
 
     data.masterRows.forEach(row => {
@@ -1163,7 +1193,7 @@ async function renderAuditLogPanel() {
 
 function manualCellValue(kind, month, itemName) {
   if (kind === "expense") {
-    const row = (currentYearData().expenseRows || []).find(entry => entry[0] === itemName);
+    const row = (currentYearData().expenseRows || []).find(entry => sameLabel(entry[0], itemName));
     return safe(row?.[month]);
   }
   return incomeMetricValue(currentYearData(), kind, month, itemName);
@@ -1185,7 +1215,7 @@ function saveManualIncomeCell(cell) {
     return true;
   }
   if (kind === "expense") {
-    const row = (currentYearData().expenseRows || []).find(entry => entry[0] === itemName);
+    const row = (currentYearData().expenseRows || []).find(entry => sameLabel(entry[0], itemName));
     if (!row) return true;
     row[month] = nextValue;
     row[13] = Array.from({ length: 12 }, (_, idx) => safe(row[idx + 1])).reduce((sum, value) => sum + value, 0);
@@ -1711,7 +1741,7 @@ function latestMonthIndex(rows, getter) {
 
 function currentCostMonthIndex() {
   if (state.month !== "all") return Math.max(0, Number(state.month) - 1);
-  return latestMonthIndex(DATA.costRows, (row, idx) => (state.year === "2025" ? row.months25 : row.months26)?.[idx]);
+  return latestMonthIndex(DATA.costRows, (row, idx) => costMonthsForYear(row, state.year)?.[idx]);
 }
 
 function rawMaterialCost(metric = {}) {
@@ -1720,7 +1750,7 @@ function rawMaterialCost(metric = {}) {
 
 function currentEscalationMonthIndex() {
   if (state.month !== "all") return Math.max(0, Number(state.month) - 1);
-  return latestMonthIndex(DATA.costRows, (row, idx) => (state.year === "2025" ? row.months25 : row.months26)?.[idx]);
+  return latestMonthIndex(DATA.costRows, (row, idx) => costMonthsForYear(row, state.year)?.[idx]);
 }
 
 function toggleSortState(sortKeyName, sortDirName, nextKey, defaultDir = "asc") {
@@ -2490,7 +2520,7 @@ function incomeMetricValue(yearData, kind, month, itemName = "") {
   if (kind === "gross") return safe(monthRow.total?.kar);
   if (kind === "expense") {
     if (itemName) {
-      const expenseRow = (yearData.expenseRows || DATA.expenseRows || []).find(row => row[0] === itemName);
+      const expenseRow = (yearData.expenseRows || DATA.expenseRows || []).find(row => sameLabel(row[0], itemName));
       return safe(expenseRow?.[month]);
     }
     return expenseMonthTotal(yearData, month);
@@ -2600,7 +2630,7 @@ function buildIncomeHoverTooltip(kind, month, itemName, monthValue, format = "mo
   ].join("\n");
 }
 
-function incomeQtyCell(value, month, itemName, unit) {
+function incomeQtyCell_legacy_unused(value, month, itemName, unit) {
   const isFilled = value !== null && value !== undefined && value !== "" && safe(value) !== 0;
   const tooltip = buildIncomeHoverTooltip("qty", month, itemName, value, "qty", unit);
   const historyHtml = buildIncomeHistoryHtml("qty", month, itemName, "qty", unit);
@@ -3258,10 +3288,11 @@ let _masterMonthIndexCache = { key: null, value: 0 };
 function currentMasterMonthIndex() {
   const cacheKey = `${state.year}|${state.month}`;
   if (_masterMonthIndexCache.key === cacheKey) return _masterMonthIndexCache.value;
+  const monthField = costMonthsField(state.year);
   const value = state.month !== "all"
     ? Math.max(0, Number(state.month) - 1)
     : latestMonthIndex(DATA.masterRows, (row, idx) => {
-      const months = state.year === "2025" ? row.months25 : row.months26;
+      const months = monthField ? row[monthField] : null;
       const metric = months?.[idx] || {};
       return safe(metric.A) + safe(metric.C) + safe(metric.TM);
     });
@@ -3282,9 +3313,9 @@ function selectedMasterMonthMeta() {
 }
 
 function monthMetric(row) {
-  const months = state.year === "2025" ? row.months25 : row.months26;
+  const months = costMonthsForYear(row, state.year);
   const idx = currentMasterMonthIndex();
-  return months[idx] || {};
+  return months?.[idx] || {};
 }
 
 const masterMonthMetricColumns = [
@@ -3318,7 +3349,7 @@ function masterFullColumns() {
     { label: "KAP2KOD", format: "raw", value: row => row.recipe?.KAP2KOD },
     { label: "TUKOD", format: "raw", value: row => row.recipe?.TUKOD }
   ];
-  const monthRowsKey = state.year === "2025" ? "months25" : "months26";
+  const monthRowsKey = costMonthsField(state.year);
   for (let monthNo = 1; monthNo <= 12; monthNo += 1) {
     masterMonthMetricColumns.forEach(([metric, format]) => {
       const label = metric === "MARJ" ? `${monthNo}%${monthNo}` : `${monthNo}${metric}`;
@@ -3341,7 +3372,8 @@ function formatMasterFullValue(value, format) {
 }
 
 function filteredMasterRows() {
-  const yearKey = state.year === "2025" ? "totals25" : "totals26";
+  const yearKey = masterTotalsField(state.year);
+  if (!yearKey) return [];
   return DATA.masterRows.filter(r => {
     const txt = normalizeText([
       r.code,
@@ -3369,6 +3401,13 @@ function renderMaster() {
   }
   catSel.value = state.masterCategory;
   if (q("#masterMode")) q("#masterMode").value = state.masterMode;
+  if (!costYearSupported(state.year)) {
+    q("#masterHead").innerHTML = "";
+    q("#masterBody").innerHTML = `<tr><td colspan="25">${state.year} için MASTER_ERP aylık maliyet modeli bulunmuyor. Bu ekran yalnızca 2025 ve 2026 verileriyle çalışır.</td></tr>`;
+    q("#masterStats").textContent = `${state.year} için MASTER_ERP aylık maliyet kaynağı bulunmuyor.`;
+    q("#masterPageLabel").textContent = "Kaynak veri bekleniyor";
+    return;
+  }
 
   const rows = filteredMasterRows();
   const pageSize = Number(state.masterPageSize);
@@ -3394,7 +3433,7 @@ function renderMaster() {
     const metric = monthMetric(row);
     return safe(metric.A) || safe(metric.C) || safe(metric.TM);
   }).length;
-  const yearKey = state.year === "2025" ? "totals25" : "totals26";
+  const yearKey = masterTotalsField(state.year);
   const totalRevenue = rows.reduce((sum, row) => sum + safe(row[yearKey]?.ciro), 0);
   const totalCost = rows.reduce((sum, row) => sum + safe(monthMetric(row).TM), 0);
   const masterSourceWarning = state.year === "2026" && activeCount === 0
@@ -3479,7 +3518,7 @@ function renderMaster() {
   `;
   if (masterSourceWarning) q("#masterStats").insertAdjacentHTML("beforeend", masterSourceWarning);
   q("#masterBody").innerHTML = slice.map(r => {
-    const totals = state.year === "2025" ? r.totals25 : r.totals26;
+    const totals = masterTotalsForYear(r, state.year) || {};
     const m = monthMetric(r);
     return `<tr>
       <td>${r.code}</td><td>${r.name}</td><td>${r.category}</td>
@@ -3512,7 +3551,7 @@ function renderCostsLegacyOld() {
   currencySel.value = state.costCurrency;
   const index = state.month === "all" ? 0 : Number(state.month) - 1;
   q("#costBody").innerHTML = filteredCostRows().slice(0,300).map(r => {
-    const monthVal = state.year === "2025" ? r.months25[index] : r.months26[index];
+    const monthVal = costMonthsForYear(r, state.year)?.[index];
     return `<tr>
       <td>${r.WKOD ?? "—"}</td><td>${formatCostProduct(r)}</td><td>${r.KATEGORİ ?? "—"}</td><td>${r.Currency ?? "—"}</td><td>${money(r.Base_Price)}</td><td>${money(monthVal)}</td>
     </tr>`;
@@ -3523,7 +3562,7 @@ function filteredCostRows() {
   const monthIndex = currentCostMonthIndex();
   return DATA.costRows
     .map(row => {
-      const months = state.year === "2025" ? row.months25 : row.months26;
+      const months = costMonthsForYear(row, state.year);
       const basePrice = safe(row.Base_Price);
       const selectedCost = safe(months?.[monthIndex]);
       const currency = normalizeCurrency(row.Currency);
@@ -3602,7 +3641,7 @@ function sourceCostRow(wkod) {
 function sourceCostValue(wkod, monthIndex) {
   const row = sourceCostRow(wkod);
   if (!row) return null;
-  const months = state.year === "2025" ? row.months25 : row.months26;
+  const months = costMonthsForYear(row, state.year);
   if (!Array.isArray(months)) return null;
   return safe(months[monthIndex]);
 }
@@ -3624,7 +3663,7 @@ function setCostCellValue(wkod, monthIndex, nextValue, renderAfter = true) {
   }
   const sourceRow = DATA.costRows.find(row => String(row.WKOD ?? "") === code);
   if (!sourceRow) return false;
-  const target = state.year === "2025" ? sourceRow.months25 : sourceRow.months26;
+  const target = costMonthsForYear(sourceRow, state.year);
   if (!Array.isArray(target)) return false;
   const oldValue = safe(target[monthIndex]);
   target[monthIndex] = safe(nextValue);
@@ -3648,7 +3687,7 @@ function restoreCostCell(wkod, monthIndex) {
   }
   if (!ensureEditPassword()) return;
   const product = formatCostProduct(row);
-  const current = safe((state.year === "2025" ? row.months25 : row.months26)?.[monthIndex]);
+  const current = safe(costMonthsForYear(row, state.year)?.[monthIndex]);
   if (!window.confirm(`${monthLabels[monthIndex + 1]} ${product}\nMevcut: ${money(current)}\nKaynak deger: ${money(sourceValue)}\n\nKaynak degere donulsun mu?`)) return;
   setCostCellValue(wkod, monthIndex, sourceValue);
 }
@@ -3666,7 +3705,7 @@ function editCostCell(wkod, monthIndex) {
   const row = DATA.costRows.find(entry => String(entry.WKOD ?? "") === String(wkod));
   if (!row) return;
   if (!ensureEditPassword()) return;
-  const months = state.year === "2025" ? row.months25 : row.months26;
+  const months = costMonthsForYear(row, state.year);
   const currentValue = safe(months?.[monthIndex]);
   const sourceValue = sourceCostValue(wkod, monthIndex);
   const product = formatCostProduct(row);
@@ -3766,7 +3805,7 @@ function buildEscalationRows() {
   ].filter(Boolean));
   return DATA.costRows
     .map(row => {
-      const months = state.year === "2025" ? row.months25 : row.months26;
+      const months = costMonthsForYear(row, state.year);
       const points = Array.from({ length: 12 }, (_, idx) => {
         return {
           month: idx + 1,
@@ -4082,6 +4121,16 @@ function renderCosts() {
   }
   if (categorySel) categorySel.value = state.costCategory;
   renderAnnualInputCard();
+  if (!costYearSupported(state.year)) {
+    q("#costBody").innerHTML = `<tr><td colspan="21">${state.year} için aylık hammadde maliyeti kaynağı bulunmuyor. Maliyet ekranı yalnızca 2025 ve 2026 verileriyle çalışır.</td></tr>`;
+    q("#costMeta").textContent = `${state.year} için maliyet matrisi kaynağı bulunmuyor.`;
+    q("#escalationBody").innerHTML = `<tr><td colspan="12">${state.year} için eskalasyon hesabı çalıştırılamıyor.</td></tr>`;
+    q("#escalationSummary").innerHTML = "";
+    q("#escalationMeta").textContent = `${state.year} için eskalasyon kaynağı bulunmuyor.`;
+    q("#productCostBody").innerHTML = `<tr><td colspan="13">${state.year} için ürün maliyet kırılımı üretilemiyor.</td></tr>`;
+    q("#productCostMeta").textContent = `${state.year} için ürün maliyet modeli bulunmuyor.`;
+    return;
+  }
 
   const costMonthIndex = currentCostMonthIndex();
   const costRows = filteredCostRows();
@@ -4835,7 +4884,7 @@ function exportEditWorkbook() {
     const costRows = [["MODULE", "YEAR", "WKOD", "URUN", "KATEGORI", "PB", "BASE_PRICE", "AY_NO", "AY", "DEGER"]];
     (DATA.costRows || []).forEach(row => {
       ["2025", "2026"].forEach(year => {
-        const months = year === "2025" ? row.months25 : row.months26;
+        const months = costMonthsForYear(row, year);
         for (let idx = 0; idx < 12; idx += 1) {
           costRows.push(["MALIYET", year, row.WKOD, formatCostProduct(row), row.KATEGORİ || row["KATEGORİ"] || row["KATEGORÄ°"] || "", normalizeCurrency(row.Currency), safe(row.Base_Price), idx + 1, monthLabels[idx + 1], safe(months?.[idx])]);
         }
@@ -4925,7 +4974,7 @@ function applyEditWorkbookRows(wb) {
       const value = nullableNumber(cellByHeader(row, headers, "DEGER"));
       const yearData = DATA.years?.[year];
       if (!yearData || !label || monthIndex < 0 || monthIndex > 11 || value === null) return;
-      const targetRow = (yearData.expenseRows || []).find(entry => entry[0] === label);
+      const targetRow = (yearData.expenseRows || []).find(entry => sameLabel(entry[0], label));
       if (!targetRow) return;
       targetRow[monthIndex + 1] = value;
       targetRow[13] = Array.from({ length: 12 }, (_, idx) => safe(targetRow[idx + 1])).reduce((sum, item) => sum + item, 0);
@@ -4942,7 +4991,7 @@ function applyEditWorkbookRows(wb) {
       const monthIndex = Number(cellByHeader(row, headers, "AY_NO")) - 1;
       const value = nullableNumber(cellByHeader(row, headers, "DEGER"));
       const targetRow = (DATA.costRows || []).find(entry => String(entry.WKOD ?? "") === wkod);
-      const months = year === "2025" ? targetRow?.months25 : year === "2026" ? targetRow?.months26 : null;
+      const months = costMonthsForYear(targetRow, year);
       if (!targetRow || !Array.isArray(months) || monthIndex < 0 || monthIndex > 11 || value === null) return;
       months[monthIndex] = value;
       persistCostRowEdit(year, wkod, months);
