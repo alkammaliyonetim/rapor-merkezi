@@ -2467,6 +2467,20 @@ function formatIncomeHoverValue(value, format = "money", unit = "") {
   return money(value);
 }
 
+function formatIncomeInlineHistoryValue(value, format = "money") {
+  const numeric = safe(value);
+  const abs = Math.abs(numeric);
+  if (format === "qty") {
+    if (abs >= 1000000) return `${num(numeric / 1000000, 1)} mn`;
+    if (abs >= 1000) return `${num(numeric / 1000, 1)}k`;
+    return num(numeric, 0);
+  }
+  if (abs >= 1000000000) return `${num(numeric / 1000000000, 1)} mlr`;
+  if (abs >= 1000000) return `${num(numeric / 1000000, 1)} mn`;
+  if (abs >= 1000) return `${num(numeric / 1000, 0)}k`;
+  return money(numeric);
+}
+
 function metricMonthCovered(yearData, kind, month, itemName = "") {
   if (!yearData) return false;
   if (kind === "expense") {
@@ -2489,20 +2503,23 @@ function historicalIncomeRows(kind, month, itemName = "", format = "money", unit
       return {
         year: String(year),
         covered,
+        value,
         text: covered ? formatIncomeHoverValue(value, format, unit) : "veri yok"
       };
     });
 }
 
 function buildIncomeHistoryHtml(kind, month, itemName = "", format = "money", unit = "") {
-  const historyRows = historicalIncomeRows(kind, month, itemName, format, unit);
+  const historyRows = historicalIncomeRows(kind, month, itemName, format, unit)
+    .filter(row => row.covered)
+    .slice(0, 2);
   if (!historyRows.length) return "";
   return `
     <div class="income-history">
       ${historyRows.map(row => `
-        <span class="income-history-line ${row.covered ? "" : "muted"}" title="${esc(row.year)} aynı ay">
+        <span class="income-history-line" title="${esc(`${row.year} aynı ay: ${row.text}`)}">
           <span class="income-history-year">${esc(String(row.year).slice(-2))}</span>
-          <span class="income-history-value">${esc(row.text)}</span>
+          <span class="income-history-value">${esc(formatIncomeInlineHistoryValue(row.value, format))}</span>
         </span>
       `).join("")}
     </div>
