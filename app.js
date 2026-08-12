@@ -2588,13 +2588,12 @@ function historicalIncomeRows(kind, month, itemName = "", format = "money", unit
 
 function buildIncomeHistoryHtml(kind, month, itemName = "", format = "money", unit = "") {
   const historyRows = historicalIncomeRows(kind, month, itemName, format, unit)
-    .filter(row => row.covered)
     .slice(0, 3);
   if (!historyRows.length) return "";
   return `
     <div class="income-history">
       ${historyRows.map(row => `
-        <span class="income-history-line" title="${esc(`${row.year} aynı ay: ${row.text}`)}">
+        <span class="income-history-line ${row.covered ? "" : "is-empty"}" title="${esc(`${row.year} aynı ay: ${row.text}`)}">
           <span class="income-history-year">${esc(String(row.year).slice(-2))}</span>
           <span class="income-history-value">${esc(formatIncomeInlineHistoryValue(row.value, format))}</span>
         </span>
