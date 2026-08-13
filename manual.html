@@ -320,6 +320,7 @@
     const now = new Date();
     let db = loadDb();
     let opsLog = loadOpsLog();
+    let isMutating = false;
     let mstate = {
       year: DATA.years[String(now.getFullYear())] ? String(now.getFullYear()) : yearsAvailable().slice(-1)[0],
       month: String(now.getMonth() + 1)
@@ -378,10 +379,43 @@
     function key() { return `${mstate.year}-${mstate.month}`; }
     function emptyEntry() { return { status: "Taslak", sales: [], costs: [], expenses: [], customers: [] }; }
     function entry() { db[key()] = db[key()] || emptyEntry(); return db[key()]; }
+    function replaceEntry(nextValue) { db[key()] = nextValue; saveDb(); return db[key()]; }
     function previousPeriodKey() {
       const month = Number(mstate.month);
       const year = Number(mstate.year);
       return month === 1 ? `${year - 1}-12` : `${year}-${month - 1}`;
+    }
+    function setActionBusyState() {
+      ["#copyPrevBtn", "#fillExpenseTemplateBtn", "#seedCostBtn", "#clearBtn"].forEach(selector => {
+        const node = q(selector);
+        if (node) node.disabled = isMutating;
+      });
+    }
+    function withMutation(action, work) {
+      if (isMutating) {
+        logOp("warn", `${action}: önceki işlem tamamlanmadan yeni işlem başlatılamaz.`);
+        return false;
+      }
+      isMutating = true;
+      setActionBusyState();
+      try {
+        return work();
+      } finally {
+        isMutating = false;
+        setActionBusyState();
+      }
+    }
+    function clearCurrentDraft(skipConfirm = false) {
+      return withMutation("TaslaÄŸÄ± temizle", () => {
+        if (!skipConfirm && !confirm("Bu ayÄ±n taslaÄŸÄ± silinsin mi? (Zaten raporlara iÅŸlenmiÅŸ veriler bundan etkilenmez.)")) {
+          return false;
+        }
+        delete db[key()];
+        saveDb();
+        logOp("warn", `${key()} taslaÄŸÄ± temizlendi.`);
+        render();
+        return true;
+      });
     }
     function logOp(level, text) {
       opsLog.unshift({ level, text, at: new Date().toLocaleString("tr-TR") });
@@ -671,6 +705,81 @@
       saveDb();
       logOp(added ? "good" : "warn", added ? `${added} WKOD için maliyet önerisi oluşturuldu.` : "Satışlardaki WKOD’lar için maliyet önerisi üretilemedi.");
       render();
+    }
+
+    function copyPreviousMonth() {
+      return withMutation("GeÃ§en ayÄ± kopyala", () => {
+        const prev = db[previousPeriodKey()];
+        if (!prev) {
+          logOp("warn", "Ã–nceki dÃ¶nemde kopyalanacak taslak bulunamadÄ±.");
+          return false;
+        }
+        replaceEntry({
+          status: "Taslak",
+          sales: cloneData(prev.sales || []),
+          costs: cloneData(prev.costs || []),
+          expenses: cloneData(prev.expenses || []),
+          customers: cloneData(prev.customers || [])
+        });
+        logOp("good", `${previousPeriodKey()} dÃ¶nemi mevcut aya kopyalandÄ±.`);
+        render();
+        return true;
+      });
+    }
+
+    function fillExpenseTemplate() {
+      return withMutation("Standart giderleri doldur", () => {
+        const e = entry();
+        const labels = expenseLabelsForYear(mstate.year);
+        const existing = new Set((e.expenses || []).map(row => row.name));
+        let added = 0;
+        labels.forEach(label => {
+          if (existing.has(label)) return;
+          e.expenses.push({ name: label, amount: "", note: "Standart gider ÅŸablonu" });
+          added += 1;
+        });
+        e.status = "Taslak";
+        saveDb();
+        logOp(added ? "good" : "warn", added ? `${added} gider kalemi ÅŸablona eklendi.` : "TÃ¼m standart gider kalemleri zaten ekli.");
+        render();
+        return added > 0;
+      });
+    }
+
+    function seedCostFromSales() {
+      return withMutation("Aktif WKOD maliyetlerini getir", () => {
+        const e = entry();
+        const wkods = [...new Set((e.sales || []).map(row => String(row.wkod || "").trim()).filter(Boolean))];
+        if (!wkods.length) {
+          logOp("warn", "SatÄ±ÅŸ satÄ±rlarÄ±nda aktif WKOD bulunamadÄ±.");
+          return false;
+        }
+        const seen = new Set((e.costs || []).map(row => String(row.wkod || "").trim().toUpperCase()));
+        let added = 0;
+        wkods.forEach(wkod => {
+          if (seen.has(wkod.toUpperCase())) return;
+          const match = findCostRow(wkod);
+          if (!match) return;
+          const monthsForYear = costMonthsForYear(match, mstate.year);
+          const currentValue = safe(monthsForYear?.[Number(mstate.month) - 1]);
+          e.costs.push({
+            wkod,
+            currency: "TRY",
+            unitPrice: currentValue ? String(Math.round(currentValue)) : "",
+            fxDate: todayIso(),
+            fxRate: "",
+            monthFrom: mstate.month,
+            monthTo: mstate.month,
+            fxNote: currentValue ? "SeÃ§ili ay maliyeti Ã¶neri olarak getirildi." : "SeÃ§ili ay maliyeti boÅŸ; elle gir."
+          });
+          added += 1;
+        });
+        e.status = "Taslak";
+        saveDb();
+        logOp(added ? "good" : "warn", added ? `${added} WKOD iÃ§in maliyet Ã¶nerisi oluÅŸturuldu.` : "SatÄ±ÅŸlardaki WKODâ€™lar iÃ§in maliyet Ã¶nerisi Ã¼retilemedi.");
+        render();
+        return added > 0;
+      });
     }
 
     async function fetchFxRate(rowIndex) {
@@ -983,6 +1092,7 @@
           render();
         }
       };
+      q("#clearBtn").onclick = () => { clearCurrentDraft(); };
       q("#importFile").onchange = async e => {
         const f = e.target.files[0];
         if (!f) return;
