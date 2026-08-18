@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Woodlent | Yönetici Kokpiti ve Stratejik Raporlama Sistemi</title>
   <link rel="icon" type="image/png" href="assets/woodlent-logo.png" />
-  <link rel="stylesheet" href="style.css?v=180820261230" />
+  <link rel="stylesheet" href="style.css?v=180820261310" />
 </head>
 <body>
   <div class="app-shell">
@@ -53,6 +53,16 @@
           <div class="meta" id="lastUpdate"></div>
         </div>
       </header>
+
+      <section class="quick-search" aria-label="Hızlı ürün ve cari arama">
+        <div class="quick-search-icon">⌕</div>
+        <div class="quick-search-main">
+          <strong>Hızlı Ara</strong>
+          <input id="globalQuickSearch" type="search" autocomplete="off" placeholder="Ürün kodu, ürün adı, cari kodu veya cari unvanı yazın…" />
+          <div id="globalQuickResults" class="quick-search-results hidden"></div>
+        </div>
+        <button id="globalQuickSearchButton" type="button">ARA</button>
+      </section>
 
       <div id="yearNotice" class="notice hidden"></div>
 
@@ -390,7 +400,7 @@
   <script src="xlsx.full.min.js"></script>
   <script>window.XLSX = window.XLSX || (typeof exports !== "undefined" ? exports : undefined);</script>
   <script src="report-data.js?v=120820261920"></script>
-  <script src="app.js?v=120820261920"></script>
+  <script src="app.js?v=180820261310"></script>
 </body>
 </html>
 
