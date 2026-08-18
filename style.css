@@ -480,14 +480,44 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
   .analysis-list{grid-template-columns:1fr}
 }
 @media (max-width:900px){
-  .app-shell{grid-template-columns:1fr}
-  .sidebar{height:auto;position:static}
+  html,body{width:100%;max-width:100%;overflow-x:hidden}
+  .app-shell{grid-template-columns:minmax(0,1fr);width:100%;max-width:100vw;overflow:hidden}
+  .sidebar{width:100%;max-width:100vw;min-width:0;height:auto;position:sticky;top:0;z-index:45;padding:8px 10px;border-right:0;border-bottom:1px solid var(--border);overflow:hidden}
+  .brand{margin-bottom:8px}.brand p{display:none}.brand h1{font-size:16px}
+  .menu{display:flex;flex-direction:row;width:100%;max-width:calc(100vw - 20px);min-width:0;gap:7px;overflow-x:auto;padding:0 0 4px;scroll-snap-type:x proximity;overscroll-behavior-x:contain;scrollbar-width:none}
+  .menu::-webkit-scrollbar{display:none}.menu-item{flex:0 0 auto;min-height:42px;padding:10px 13px;scroll-snap-align:start;white-space:nowrap}
+  .main{width:100%;max-width:100vw;min-width:0;padding:10px 10px max(12px,env(safe-area-inset-bottom))}
   .topbar{flex-direction:column}
+  .toolbar{width:100%}.toolbar .field{flex:1;min-width:120px}.field select,.field input{width:100%;min-height:44px;font-size:16px}
+  .quick-search{grid-template-columns:44px minmax(0,1fr);padding:11px;gap:9px;border-radius:13px}
+  .quick-search-icon{width:42px;height:42px;font-size:28px}.quick-search-main input{height:48px;font-size:16px}
+  .quick-search>button{grid-column:1/-1;width:100%;height:48px;margin-top:0;font-size:15px}
+  .quick-search-results{position:fixed;z-index:80;top:auto;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));max-height:58dvh;border-radius:16px}
+  .quick-result{grid-template-columns:64px minmax(0,1fr);min-height:58px;padding:12px}.quick-result-code{grid-column:2;white-space:normal}
   .cards-grid{grid-template-columns:1fr}
   .history-compare-grid{grid-template-columns:1fr}
   .history-compare-metrics{grid-template-columns:1fr}
   .income-head{flex-direction:column}
   .analysis-grid{grid-template-columns:1fr}
   .detail-overview,.detail-insights{grid-template-columns:1fr}
+  .detail-drawer{z-index:100;background:#f8fafc}
+  .detail-panel{width:100vw;height:100dvh;border-left:0;box-shadow:none}
+  .detail-head{position:sticky;top:0;z-index:3;padding:12px}.detail-head h3{font-size:17px}
+  #detailClose{width:44px;height:44px;flex:0 0 auto}.detail-filters{padding:10px 12px}.detail-filters input{min-height:46px;font-size:16px}
+  .detail-overview{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px 12px 0}
+  .detail-insights{display:flex;overflow-x:auto;padding:10px 12px;scroll-snap-type:x mandatory}.detail-insight{flex:0 0 85%;scroll-snap-align:start}
+  .detail-table-wrap{padding:0 12px 18px;-webkit-overflow-scrolling:touch}
+  .income-table-wrap,.table-wrap,.master-wrap,.cost-matrix-wrap,.product-cost-wrap{-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .income-table-wrap{max-height:68dvh}.income-statement-summary{padding:10px}.income-statement-row{padding:12px}
+  .card,.control-panel{border-radius:14px;padding:12px}.viz-legend{gap:8px}.viz-axis-label{font-size:9px}.viz-value-label{font-size:10px}
+}
+@media(max-width:520px){
+  .topbar h2{font-size:17px}.topbar p{font-size:12px}.meta{width:100%;padding-top:2px}
+  .toolbar{display:grid;grid-template-columns:1fr 1fr}.toolbar .meta{grid-column:1/-1}.notice{padding:10px;font-size:12px}
+  .income-head{padding:10px}.income-totals{display:grid;grid-template-columns:1fr 1fr;width:100%}.income-totals span{text-align:center;padding:8px}
+  .income-statement-row{grid-template-columns:minmax(0,1fr) auto;gap:8px}.income-statement-row .amount{font-size:13px}.income-statement-row.net .name,.income-statement-row.net .amount{font-size:15px}
+  .detail-overview{grid-template-columns:1fr 1fr;gap:7px}.detail-stat{padding:9px}.detail-stat strong{font-size:15px}
+  .section-heading h3,.card-title{font-size:16px}.analysis-card strong{font-size:18px}
+  button,.menu-item,a{-webkit-tap-highlight-color:transparent}
 }
 
