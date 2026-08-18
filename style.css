@@ -50,6 +50,15 @@ body.year-theme-2026{--year-accent:#a855f7;--year-soft:rgba(168,85,247,.14)}
 .income-head p{margin:4px 0 0;color:#475569;font-size:13px}
 .income-totals{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .income-totals span{background:#eef6ff;border:1px solid #bfd7ff;border-radius:6px;color:#0f172a;font-weight:800;font-size:11px;padding:6px 8px}
+.income-statement-summary{padding:16px;background:#f8fafc;border-bottom:1px solid #c9d2df}
+.income-statement-card{max-width:760px;margin:0 auto;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 5px 18px rgba(15,23,42,.08)}
+.income-statement-title{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 16px;background:#10213d;color:#fff}
+.income-statement-title strong{font-size:16px}.income-statement-title span{font-size:11px;color:#bfdbfe}
+.income-statement-row{display:grid;grid-template-columns:minmax(190px,1fr) 150px 86px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid #e2e8f0;color:#0f172a}
+.income-statement-row:last-child{border-bottom:0}.income-statement-row .name{font-weight:800}.income-statement-row .amount{text-align:right;font-weight:900;font-variant-numeric:tabular-nums}.income-statement-row .ratio{text-align:right;color:#64748b;font-weight:700;font-size:12px}
+.income-statement-row.deduction .name,.income-statement-row.deduction .amount{color:#b42318}.income-statement-row.subtotal{background:#ecfdf5;border-top:2px solid #86efac}.income-statement-row.subtotal .name,.income-statement-row.subtotal .amount{color:#067647;font-size:15px}
+.income-statement-row.net{background:#dbeafe;border-top:3px solid #2563eb}.income-statement-row.net .name,.income-statement-row.net .amount{color:#123c78;font-size:17px}.income-statement-formula{display:block;margin-top:3px;color:#64748b;font-size:10px;font-weight:500}
+@media(max-width:620px){.income-statement-row{grid-template-columns:1fr auto}.income-statement-row .ratio{grid-column:1/-1;text-align:left;margin-top:-6px}.income-statement-title{align-items:flex-start;flex-direction:column}}
 .income-table-wrap{overflow:auto;max-height:calc(100vh - 148px);background:#fff}
 .income-table{--income-label-col-width:172px;--income-trend-col-width:46px;min-width:1180px;width:100%;border-collapse:separate;border-spacing:0;font-family:Arial,Helvetica,sans-serif}
 .income-table th,.income-table td{border-right:1px solid #111827;border-bottom:1px solid #111827;padding:5px 8px;font-size:12px;line-height:1.15;white-space:nowrap;text-align:right;color:#111827;vertical-align:top;box-sizing:border-box}
@@ -474,3 +483,4 @@ th{text-align:left;color:var(--muted);font-size:12px;background:rgba(255,255,255
   .analysis-grid{grid-template-columns:1fr}
   .detail-overview,.detail-insights{grid-template-columns:1fr}
 }
+
