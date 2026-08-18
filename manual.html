@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Manuel Veri Girişi | Woodlent</title>
   <style>
     :root {
@@ -128,9 +128,25 @@
     }
     @media (max-width: 980px) {
       .shell { grid-template-columns: 1fr; }
-      aside { border-right: 0; border-bottom: 1px solid var(--border); }
+      aside { position: sticky; top: 0; z-index: 40; border-right: 0; border-bottom: 1px solid var(--border); padding: 9px 11px; }
+      .brand { margin-bottom: 8px; }
+      .brand p, aside .notice { display: none; }
+      .nav { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+      .nav::-webkit-scrollbar { display: none; }
+      .nav a { flex: 0 0 auto; min-height: 42px; display: flex; align-items: center; white-space: nowrap; }
       .grid, .two, .three { grid-template-columns: 1fr; }
       .topbar { flex-direction: column; }
+      main { padding: 12px; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+      .toolbar, .button-row, .ops-toolbar { width: 100%; }
+      button, .btn, .button-row button, .ops-toolbar button { min-height: 48px; }
+      input, select, textarea { min-height: 46px; font-size: 16px; }
+      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+    }
+    @media (max-width: 520px) {
+      .toolbar, .button-row, .ops-toolbar { display: grid; grid-template-columns: 1fr; }
+      .toolbar > *, .button-row > *, .ops-toolbar > * { width: 100%; }
+      .card { padding: 12px; border-radius: 14px; }
+      .section-head { display: block; }
     }
   </style>
 </head>
