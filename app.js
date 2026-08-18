@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 68976)
-Total output lines: 5718
+Warning: truncated output (original token count: 70729)
+Total output lines: 5823
 
 
 const _mojibakeCache = new Map();
@@ -2253,23 +2253,7 @@ function buildCustomerDetailPayload(customerName) {
       { key: "amount", label: "Satış Tutarı", format: "money" }
     ],
     rows,
- …18976 tokens truncated…otalCost)}</span>
-    </div>
-    <div class="master-stats-note">
-      ${masterMonth.modeLabel}. Aktif WERP kolonlari: ${activeColumns.join(", ")}.
-      Recete aramalarinda MKOD, SKOD, KAP1KOD, KAP2KOD ve TUKOD da filtreye dahildir.
-    </div>
-  `;
-  if (masterSourceWarning) q("#masterStats").insertAdjacentHTML("beforeend", masterSourceWarning);
-  q("#masterBody").innerHTML = slice.map(r => {
-    const totals = masterTotalsForYear(r, state.year) || {};
-    const m = monthMetric(r);
-    return `<tr>
-      <td>${r.code}</td><td>${r.name}</td><td>${r.category}</td>
-      <td>${num(totals.adet, 3)}</td><td>${money(totals.ciro)}</td><td>${money(totals.maliyet)}</td><td>${money(totals.kar)}</td><td>${pct(totals.marj)}</td>
-      <td>${num(m.A, 3)}</td><td>${money(m.C)}</td><td>${money(m.TM)}</td><td>${money(m.KAR)}</td><td>${money(m.BM)}</td><td>${money(m.LG)}</td>
-      <td>${money(m.KAP1)}</td><td>${money(m.KAP2)}</td><td>${money(m.TUT)}</td><td>${money(m.GG)}</td><td>${money(m.DG)}</td>
-      <td>${r.recipe.MKOD ?? "—"}</td><td>${r.recipe.SKOD ?? "—"}</td><td>${r.recipe.KAP1KOD ?? "—"}</td><td>${r.recipe.KAP2KOD ?? "—"}</td><td>${r.recipe.TUKOD ?? "—"}</td>
+  …20729 tokens truncated….SKOD ?? "—"}</td><td>${r.recipe.KAP1KOD ?? "—"}</td><td>${r.recipe.KAP2KOD ?? "—"}</td><td>${r.recipe.TUKOD ?? "—"}</td>
     </tr>`;
   }).join("");
   q("#masterPageLabel").textContent = `Sayfa ${state.masterPage} / ${totalPages}`;
@@ -4039,6 +4023,18 @@ function render() {
 
 function bind() {
   qa(".menu-item").forEach(btn => btn.addEventListener("click", () => { state.view = btn.dataset.view; render(); }));
+  q("#globalQuickSearch")?.addEventListener("focus", async () => { await ensureDetailDataForInteraction(); renderQuickSearchResults(); });
+  q("#globalQuickSearch")?.addEventListener("input", renderQuickSearchResults);
+  q("#globalQuickSearch")?.addEventListener("keydown", e => {
+    if (e.key === "Escape") q("#globalQuickResults").classList.add("hidden");
+    if (e.key === "Enter") { e.preventDefault(); openQuickSearchItem(q("#globalQuickResults .quick-result.active") || q("#globalQuickResults .quick-result")); }
+  });
+  q("#globalQuickSearchButton")?.addEventListener("click", () => {
+    const first=q("#globalQuickResults .quick-result.active") || q("#globalQuickResults .quick-result");
+    if (first) openQuickSearchItem(first); else { q("#globalQuickSearch")?.focus(); renderQuickSearchResults(); }
+  });
+  q("#globalQuickResults")?.addEventListener("click", e => openQuickSearchItem(e.target.closest(".quick-result")));
+  document.addEventListener("click", e => { if (!e.target.closest(".quick-search")) q("#globalQuickResults")?.classList.add("hidden"); });
   q("#incomeTable")?.addEventListener("click", async e => {
     const cell = e.target.closest(".income-value");
     if (!cell) return;
